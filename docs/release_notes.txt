@@ -1,0 +1,22 @@
+Released Version 1.0 on 28th July 2013
+======================================
+
+Features:
+
+Asynchronous and Pipelined
+
+Efficient Serialization of Java Objects using OPTI_JAVA_HANDLER
+
+Data Handlers to specify mapping between Objects and data stored in Redis
+
+Built-in GZIP Compression
+
+Subscribe API for messaging
+
+Client side Sharding
+
+Synchronous and Asynchronous usage
+
+Connection Pool for Transactions
+
+Closing of idle connections
