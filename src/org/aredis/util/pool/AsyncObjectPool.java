@@ -27,12 +27,10 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -40,6 +38,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.aredis.cache.AsyncRedisConnection;
 import org.aredis.util.ArrayWrappingList;
+import org.aredis.util.concurrent.SynchronizedStack;
 
 /**
  * An fixed size Object pool with the feature of Async borrow used as connection pool by aredis for MULTI-EXEC transactions with WATCH commands.
@@ -232,7 +231,7 @@ public class AsyncObjectPool<E> {
 
     private volatile List<PoolMemberHolder<E>> poolMemberList;
 
-    private BlockingDeque<PoolMemberHolder<E>> freeMembers;
+    private SynchronizedStack<PoolMemberHolder<E>> freeMembers;
 
     Queue<PoolUser<E>> waitingUsers;
 
@@ -260,7 +259,7 @@ public class AsyncObjectPool<E> {
         poolSize = ppoolSize;
         poolMembers = new PoolMemberHolder[ppoolSize];
         poolMemberList = new ArrayWrappingList<AsyncObjectPool.PoolMemberHolder<E>>(poolMembers);
-        freeMembers = new LinkedBlockingDeque<PoolMemberHolder<E>>();
+        freeMembers = new SynchronizedStack<>(poolSize);
         waitingUsers = new LinkedBlockingQueue<PoolUser<E>>();
         int i;
         for(i = 0; i < poolMembers.length; i++) {
@@ -270,7 +269,7 @@ public class AsyncObjectPool<E> {
         }
         Arrays.sort(poolMembers);
         for(i = 0; i < poolMembers.length; i++) {
-            freeMembers.push(poolMembers[i]);
+            freeMembers.offerFirst(poolMembers[i]);
         }
     }
 
@@ -318,7 +317,7 @@ public class AsyncObjectPool<E> {
                     }
                 }
                 if(poolUser == null) {
-                    freeMembers.push(holder);
+                    freeMembers.offerFirst(holder);
                 }
             }
             if(reconcileCount != null) {
@@ -431,6 +430,14 @@ public class AsyncObjectPool<E> {
         return member;
     }
 
+    private synchronized void updateStackCapacity() {
+        if(poolMembers.length == poolSize) {
+            if(!freeMembers.setCapacity(poolSize)) {
+                throw new RuntimeException("Unexpected error in updating the freeMembers stack capacity from " + freeMembers.getCapacity() + " to " + poolSize + " Current Stack Size: " + freeMembers.size());
+            }
+        }
+    }
+
     private synchronized void cleanupPool(boolean checkFreeMembers) {
         int i, len, poolLen = poolMembers.length;
         PoolMemberHolder<E> poolMember;
@@ -468,6 +475,7 @@ public class AsyncObjectPool<E> {
         newPoolMembers = Arrays.copyOf(newPoolMembers, newLen);
         poolMembers = newPoolMembers;
         poolMemberList = new ArrayWrappingList<AsyncObjectPool.PoolMemberHolder<E>>(poolMembers);
+        updateStackCapacity();
     }
 
     private void returnToPool(E member, boolean validate) {
@@ -498,7 +506,7 @@ public class AsyncObjectPool<E> {
                 }
             }
             if(poolUser == null) {
-                freeMembers.push(poolMemberHolder);
+                freeMembers.offerFirst(poolMemberHolder);
                 removalStatus = poolMemberHolder.removalStatus;
                 if(removalStatus == AVAILABLE && waitingUsers.size() > 0) {
                     ensureEmptyWaitersOrMembers();
@@ -548,6 +556,7 @@ public class AsyncObjectPool<E> {
             for(i = 0; i < diff; i++) {
                 returnToPool(additionalPoolMembers[i].member, false);
             }
+            updateStackCapacity();
         }
         else if(newSize < poolSize) {
             diff = poolSize - newSize;

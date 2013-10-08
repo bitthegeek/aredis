@@ -161,16 +161,15 @@ public class TestAsyncObjectPool extends Thread {
             Future<PoolObject> futureMember = null;
             int sleepMillis = r.nextInt(maxSleepMillis);
             boolean isAsync = false;
+            // Change 10, 10, 15 in below borrow and get calls to 1000, 1000 and 1015 to avoid null member messages
             if(typ == 0 || typ == 2 && System.currentTimeMillis() - prevAsyncTime < asyncCallIntervalMillis) {
                 member = pool.syncBorrow(10);
             }
             else if (typ == 1) {
                 futureMember = pool.borrow(10);
-                if(futureMember != null) {
-                    try {
-                        member = futureMember.get(15, TimeUnit.MILLISECONDS);
-                    } catch (Exception e) {
-                    }
+                try {
+                    member = futureMember.get(15, TimeUnit.MILLISECONDS);
+                } catch (Exception e) {
                 }
             }
             else {
