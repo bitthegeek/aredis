@@ -278,7 +278,7 @@ public class JavaHandler implements DataHandler {
             o = new String(b, strStart, strLen, charEncoding);
         }
         else if(streamType == StreamType.GZIP) {
-            ip = new BufferedInputStream(new GZIPInputStream(ip), 8);
+            ip = new BufferedInputStream(new GZIPInputStream(ip), 2048);
             streamType = checkObjectStream(ip);
             if(streamType == StreamType.GZIP) {
                 streamType = StreamType.STRING;

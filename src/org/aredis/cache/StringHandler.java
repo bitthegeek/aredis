@@ -22,6 +22,7 @@
 
 package org.aredis.cache;
 
+import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -85,7 +86,7 @@ public class StringHandler implements DataHandler {
             o = new String(b, offset, len, charset);
         }
         else {
-            InputStream ip = new GZIPInputStream(new ByteArrayInputStream(b, offset, len));
+            InputStream ip = new BufferedInputStream(new GZIPInputStream(new ByteArrayInputStream(b, offset, len)), 2048);
             Reader r = new InputStreamReader(ip, charset);
             int charsRead;
             char [] cbuf = new char[128];

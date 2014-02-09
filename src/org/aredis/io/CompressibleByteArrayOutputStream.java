@@ -22,6 +22,7 @@
 
 package org.aredis.io;
 
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -73,7 +74,7 @@ public class CompressibleByteArrayOutputStream extends OutputStream {
 
     private ReusableByteArrayOutputStream bop;
 
-    private GZIPOutputStream gzipOp;
+    private OutputStream gzipOp;
 
     private int compressionThreshold;
 
@@ -187,7 +188,7 @@ public class CompressibleByteArrayOutputStream extends OutputStream {
             // Turn on compression. Write bytes in session to end of bop and
             // then copy it to session start
             byte [] buf = bop.getBuf();
-            GZIPOutputStream gzipOutput = new GZIPOutputStream(bop);
+            OutputStream gzipOutput = new BufferedOutputStream(new GZIPOutputStream(bop), 2048);
             gzipOutput.write(buf, countAtSessionStart, bytesInSession);
             // Reassign buf in case bop has expanded
             buf = bop.getBuf();
