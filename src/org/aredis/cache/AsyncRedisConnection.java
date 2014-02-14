@@ -268,9 +268,14 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
     public static final DataHandler KEY_HANDLER = new StringHandler();
 
     /**
+     * Default Per Connection Class Descriptor Storage used by OPTI_JAVA_HANDLER.
+     */
+    public static final ClassDescriptorStorageFactory DEFAULT_CLASS_DESCRIPTOR_STORAGE_FACTORY = new PerConnectionRedisClassDescriptorStorageFactory(null);
+
+    /**
      * This {@link DataHandler} is an instance of {@link JavaHandler}. It is configured to optimize object storage by storing the class descriptors for the classes separately.
      */
-    public static final DataHandler OPTI_JAVA_HANDLER = new JavaHandler(new PerConnectionRedisClassDescriptorStorageFactory(null), true);
+    public static final DataHandler OPTI_JAVA_HANDLER = new JavaHandler(DEFAULT_CLASS_DESCRIPTOR_STORAGE_FACTORY, true);
 
     /**
      * This {@link DataHandler} is an instance of {@link JavaHandler} with normal Object serialization.
@@ -280,7 +285,7 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
     /**
      * Identical to OPTI_JAVA_HANDLER but without compression.
      */
-    public static final DataHandler OPTI_JAVA_HANDLER_NO_COMPRESS = new JavaHandler(new PerConnectionRedisClassDescriptorStorageFactory(null), true);
+    public static final DataHandler OPTI_JAVA_HANDLER_NO_COMPRESS = new JavaHandler(DEFAULT_CLASS_DESCRIPTOR_STORAGE_FACTORY, true);
 
     /**
      * Identical to JAVA_HANDLER but without compression.
