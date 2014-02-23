@@ -27,6 +27,7 @@ import java.util.Map;
 
 import org.aredis.net.AsyncSocketTransport;
 import org.aredis.net.AsyncSocketTransportFactory;
+import org.aredis.net.ServerInfo;
 
 /**
  * A ClassDescriptorStorage Factory which returns a {@link RedisClassDescriptorStorage} for the given redis server.
@@ -74,7 +75,7 @@ public class PerConnectionRedisClassDescriptorStorageFactory implements ClassDes
     public RedisClassDescriptorStorage getStorage(ServerInfo conInfo) {
         RedisClassDescriptorStorage storage = null;
         Map<String, RedisClassDescriptorStorage> map = serverStorageMap;
-        String serverKey = conInfo.getHost() + ':' + conInfo.getHost();
+        String serverKey = conInfo.getConnectionString();
         if(map != null) {
             storage = map.get(serverKey);
         }

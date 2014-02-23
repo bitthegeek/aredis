@@ -23,6 +23,7 @@
 package org.aredis.cache;
 
 import org.aredis.io.ClassDescriptorStorage;
+import org.aredis.net.ServerInfo;
 
 /**
  * Defines a factory for getting a {@link ClassDescriptorStorage} for the given Redis Server.

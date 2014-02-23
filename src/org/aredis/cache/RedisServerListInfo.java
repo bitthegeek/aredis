@@ -52,7 +52,7 @@ public class RedisServerListInfo implements Comparable<RedisServerListInfo> {
         StringBuilder sb = new StringBuilder();
         int i;
         for(i = 0; i < servers.length; i++) {
-            sb.append(servers[i].getConnectionString()).append(',');
+            sb.append(servers[i].getRedisConnectionString()).append(',');
         }
         sb.setLength(sb.length() - 1);
         connectionString = sb.toString();

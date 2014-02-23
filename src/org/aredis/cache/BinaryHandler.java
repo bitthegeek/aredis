@@ -30,6 +30,7 @@ import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
 
 import org.aredis.io.CompressibleByteArrayOutputStream;
+import org.aredis.net.ServerInfo;
 
 /**
  * A Data Handler which stores a Byte Array of data optionally compressing it. The compression is either on or off and

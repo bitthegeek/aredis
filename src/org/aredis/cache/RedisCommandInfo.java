@@ -24,6 +24,7 @@ package org.aredis.cache;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.aredis.net.ServerInfo;
 
 /**
  * This is a class to Hold a Redis Command with its arguments and also the result once the command is completed.

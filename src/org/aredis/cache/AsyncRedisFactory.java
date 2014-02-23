@@ -145,7 +145,7 @@ public class AsyncRedisFactory {
                 String newConnectionString = null;
                 RedisServerInfo serverInfo = new RedisServerInfo(connectionString);
                 if(unalias) {
-                    newConnectionString = serverInfo.getConnectionString();
+                    newConnectionString = serverInfo.getRedisConnectionString();
                     if(newConnectionString.equals(connectionString)) {
                         unalias = false;
                     }
@@ -268,7 +268,7 @@ public class AsyncRedisFactory {
      * @return An AsyncRedisConnection for the given server
      */
     public AsyncRedisConnection getConnection(RedisServerInfo redisServerInfo, Executor pexecutor) {
-        String connectionString = redisServerInfo.getConnectionString();
+        String connectionString = redisServerInfo.getRedisConnectionString();
         AsyncRedisService asyncRedisService = getService(connectionString , pexecutor, false, false, ServiceType.CONNECTION);
         if(asyncRedisService == null) {
             synchronized(this) {
@@ -295,7 +295,7 @@ public class AsyncRedisFactory {
      * @return An AsyncObjectPool holding AsyncRedisConnection objects
      */
     public AsyncObjectPool<AsyncRedisConnection> getConnectionPool(RedisServerInfo redisServerInfo, Executor pexecutor) {
-        String connectionString = redisServerInfo.getConnectionString();
+        String connectionString = redisServerInfo.getRedisConnectionString();
         AsyncRedisService asyncRedisService = getService(connectionString , pexecutor, false, false, ServiceType.CONNECTIONPOOL);
         if(asyncRedisService == null) {
             synchronized(this) {
@@ -400,7 +400,7 @@ public class AsyncRedisFactory {
      * @return A RedisSubscription object using which one can Subscribe to messages on the Redis Server
      */
     public RedisSubscription getSubscription(RedisServerInfo redisServerInfo, Executor pexecutor) {
-        String connectionString = redisServerInfo.getConnectionString();
+        String connectionString = redisServerInfo.getRedisConnectionString();
         AsyncRedisService asyncRedisService = getService(connectionString , pexecutor, false, false, ServiceType.SUBSCRIPTION);
         if(asyncRedisService == null) {
             synchronized(this) {

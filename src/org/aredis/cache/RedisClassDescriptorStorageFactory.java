@@ -23,6 +23,7 @@
 package org.aredis.cache;
 
 import org.aredis.net.AsyncSocketTransport;
+import org.aredis.net.ServerInfo;
 
 /**
  * A ClassDescriptorStorage Factory which a returns a single {@link RedisClassDescriptorStorage} for all redis servers.

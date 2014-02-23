@@ -32,6 +32,7 @@ import java.nio.charset.Charset;
 import java.util.zip.GZIPInputStream;
 
 import org.aredis.io.CompressibleByteArrayOutputStream;
+import org.aredis.net.ServerInfo;
 
 /**
  * A Data Handler which stores a String optionally compressing it. The compression is either on or off and

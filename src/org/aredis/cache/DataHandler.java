@@ -25,6 +25,7 @@ package org.aredis.cache;
 import java.io.IOException;
 
 import org.aredis.io.CompressibleByteArrayOutputStream;
+import org.aredis.net.ServerInfo;
 
 /**
  * Specifies the serialization and de-serialization of a value when storing to and retrieving an Object from the Redis Server.

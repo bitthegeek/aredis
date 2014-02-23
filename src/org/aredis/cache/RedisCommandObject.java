@@ -31,6 +31,7 @@ import org.aredis.cache.RedisCommandInfo.CommandStatus;
 import org.aredis.cache.RedisCommandInfo.ResultType;
 import org.aredis.io.CompressibleByteArrayOutputStream;
 import org.aredis.net.AsyncSocketTransport;
+import org.aredis.net.ServerInfo;
 
 class RedisCommandObject implements AsyncHandler<RedisRawResponse> {
     private static final Log log = LogFactory.getLog(RedisCommandObject.class);

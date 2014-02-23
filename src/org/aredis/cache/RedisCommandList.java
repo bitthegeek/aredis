@@ -33,6 +33,7 @@ import org.apache.commons.logging.LogFactory;
 import org.aredis.cache.RedisCommandInfo.CommandStatus;
 import org.aredis.cache.RedisCommandInfo.ResultType;
 import org.aredis.net.AsyncSocketTransport;
+import org.aredis.net.ServerInfo;
 import org.aredis.util.concurrent.EmptyRunnable;
 
 class RedisCommandList implements AsyncHandler<Integer> {

@@ -81,12 +81,8 @@ public class ConnectionState {
      * @param port Port
      * @return Connection State for the server
      */
-    public static ConnectionState getInstance(String host, int port) {
+    public static ConnectionState getInstance(String serverKey) {
         ConnectionState connectionState = null;
-        String serverKey = host + ':' + port;
-        if(host.length() == 0 || port <= 0) {
-            throw new IllegalArgumentException("Invalid host:port for getInstance " + serverKey);
-        }
         Map<String, ConnectionState> sMap = serverMap;
         if(sMap != null) {
             connectionState = sMap.get(serverKey);

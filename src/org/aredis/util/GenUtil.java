@@ -22,6 +22,9 @@
 
 package org.aredis.util;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
 /**
  * Generic util class containing static methods.
  *
@@ -44,6 +47,31 @@ public class GenUtil {
         if(debugBuf != null) {
             debugBuf.append(message).append('\n');
         }
+    }
+
+    /**
+     * Computes digest of given input String.
+     * @param s Input String
+     * @param algorithm Algorithm to use. Examples: SHA-1, SHA-256, MD5.
+     * @return Hex encoded digest
+     * @throws NoSuchAlgorithmException if algorithm is invalid
+     */
+    public static String digest(String s, String algorithm) throws NoSuchAlgorithmException {
+        int i;
+        MessageDigest md = MessageDigest.getInstance(algorithm);
+
+        byte[] hash = md.digest(s.getBytes());
+
+        StringBuilder sb = new StringBuilder(2 * hash.length);
+        for(i = 0; i < hash.length; i++) {
+            int b = hash[i] & 0xff;
+            if(b < 16) {
+                sb.append('0');
+            }
+            sb.append(Integer.toHexString(b));
+        }
+
+        return sb.toString();
     }
 
 }

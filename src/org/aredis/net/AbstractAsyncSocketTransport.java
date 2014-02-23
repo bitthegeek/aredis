@@ -65,6 +65,10 @@ public abstract class AbstractAsyncSocketTransport implements AsyncSocketTranspo
 
     protected final int port;
 
+    protected final String connectionString;
+
+    protected final int serverIndex;
+
     protected AsyncSocketTransportFactory transportFactory;
 
     protected AsyncSocketTransportConfig config;
@@ -88,7 +92,9 @@ public abstract class AbstractAsyncSocketTransport implements AsyncSocketTranspo
     public AbstractAsyncSocketTransport(String phost, int pport) {
         host = phost.trim();
         port = pport;
-        connectionState = ConnectionState.getInstance(host, port);
+        connectionString = host + ':' + port;
+        serverIndex = ServerIndexes.getServerInfoIndex(this);
+        connectionState = ConnectionState.getInstance(connectionString);
         connectionStatus = ConnectionStatus.CLOSED;
         retryHandler = new RetryHandler();
     }
@@ -203,6 +209,16 @@ public abstract class AbstractAsyncSocketTransport implements AsyncSocketTranspo
     @Override
     public int getPort() {
         return port;
+    }
+
+    @Override
+    public String getConnectionString() {
+        return connectionString;
+    }
+
+    @Override
+    public int getServerIndex() {
+        return serverIndex;
     }
 
 }

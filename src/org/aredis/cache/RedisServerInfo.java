@@ -22,6 +22,9 @@
 
 package org.aredis.cache;
 
+import org.aredis.net.ServerIndexes;
+import org.aredis.net.ServerInfo;
+
 /**
  * Identifies a Redis server with its host, port and dbIndex. Provides an implementation of the hashCode, equals and compareTo methods
  * also so that this Object can be used as a key.
@@ -42,11 +45,17 @@ public class RedisServerInfo implements ServerInfo, Comparable<RedisServerInfo> 
 
     private String connectionString;
 
+    private int serverIndex;
+
+    private String redisConnectionString;
+
     private void init(String phost, int pport, int pdbIndex) {
         host = phost;
         port = pport;
+        connectionString = host + ':' + port;
+        serverIndex = ServerIndexes.getServerInfoIndex(this);
         dbIndex = pdbIndex;
-        connectionString = host + ':' + port + '/' + dbIndex;
+        redisConnectionString = host + ':' + port + '/' + dbIndex;
     }
 
     /**
@@ -101,14 +110,10 @@ public class RedisServerInfo implements ServerInfo, Comparable<RedisServerInfo> 
         }
     }
 
-    public String getConnectionString() {
-        return connectionString;
-    }
-
     @Override
     public int hashCode() {
         if(hash == 0) {
-            hash = connectionString.hashCode();
+            hash = redisConnectionString.hashCode();
         }
 
         return hash;
@@ -135,7 +140,7 @@ public class RedisServerInfo implements ServerInfo, Comparable<RedisServerInfo> 
 
     @Override
     public int compareTo(RedisServerInfo o) {
-        return connectionString.compareTo(o.connectionString);
+        return redisConnectionString.compareTo(o.redisConnectionString);
     }
 
     public String getHost() {
@@ -148,5 +153,19 @@ public class RedisServerInfo implements ServerInfo, Comparable<RedisServerInfo> 
 
     public int getDbIndex() {
         return dbIndex;
+    }
+
+    @Override
+    public String getConnectionString() {
+        return connectionString;
+    }
+
+    @Override
+    public int getServerIndex() {
+        return serverIndex;
+    }
+
+    public String getRedisConnectionString() {
+        return redisConnectionString;
     }
 }

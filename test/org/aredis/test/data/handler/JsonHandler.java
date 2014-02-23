@@ -29,10 +29,10 @@ import java.nio.charset.Charset;
 import java.util.zip.GZIPInputStream;
 
 import org.aredis.cache.DataHandler;
-import org.aredis.cache.ServerInfo;
 import org.aredis.io.CompressibleByteArrayOutputStream;
 import org.aredis.io.RedisConstants;
 import org.aredis.io.ReusableByteArrayInputStream;
+import org.aredis.net.ServerInfo;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JavaType;

@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import org.aredis.cache.AsyncHandler;
 import org.aredis.cache.AsyncRedisConnection;
-import org.aredis.cache.ServerInfo;
 
 /**
  * Specifies an Async Socket Transport interface that can be used by {@link AsyncRedisConnection} to connect to a Redis Server.

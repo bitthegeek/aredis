@@ -20,10 +20,10 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **/
 
-package org.aredis.cache;
+package org.aredis.net;
 
 /**
- * Identifies a Server.
+ * Identifies a Server. Implementations should be immutable as far as host and port are concerned.
  * @author Suresh
  *
  */
@@ -41,4 +41,17 @@ public interface ServerInfo {
      */
     int getPort();
 
+    /**
+     * Gets the Connection String in the form of host:port so that it does not have to be constructed
+     * each time.
+     * @return Connection String
+     */
+    String getConnectionString();
+
+    /**
+     * Gets an index identifying the server. The index should be got via the
+     * {@link ServerIndexes#getServerInfoIndex(ServerInfo)} method and saved as a field.
+     * @return
+     */
+    int getServerIndex();
 }

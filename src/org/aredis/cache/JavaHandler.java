@@ -39,6 +39,7 @@ import org.aredis.io.OptiObjectInputStream;
 import org.aredis.io.OptiObjectOutputStream;
 import org.aredis.io.RedisConstants;
 import org.aredis.io.ReusableByteArrayInputStream;
+import org.aredis.net.ServerInfo;
 
 /**
  * The default Data Handler. Strings are encoded as it is except if the encoded String begins with one of the special
