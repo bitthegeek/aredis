@@ -76,9 +76,8 @@ public class ConnectionState {
     }
 
     /**
-     * Gets the connection state for the given server. Returs a common instance for a given host and port.
-     * @param host Server Host
-     * @param port Port
+     * Gets the connection state for the given server. Returns a common instance for a given serverKey.
+     * @param serverKey Server Key in the form host:port
      * @return Connection State for the server
      */
     public static ConnectionState getInstance(String serverKey) {
