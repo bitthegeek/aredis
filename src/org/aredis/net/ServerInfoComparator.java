@@ -2,11 +2,20 @@ package org.aredis.net;
 
 import java.util.Comparator;
 
+import org.aredis.util.SortedArray;
+import org.aredis.util.SortedArray.IndexUpdater;
+
 public class ServerInfoComparator implements Comparator<ServerInfo> {
+
+    private static final SortedArray<ServerInfo> serverInfosArray = new SortedArray<ServerInfo>();
 
     public static final ServerInfoComparator INSTANCE = new ServerInfoComparator();
 
     private ServerInfoComparator() {
+    }
+
+    public static ServerInfo findItem(ServerInfo serverInfo, IndexUpdater indexUpdater) {
+        return serverInfosArray.findItem(serverInfo, INSTANCE, indexUpdater);
     }
 
     @Override
@@ -23,18 +32,18 @@ public class ServerInfoComparator implements Comparator<ServerInfo> {
                     if (host2 != null) {
                         result = host1.compareTo(host2);
                     }
-                } else if (host2 == null) {
+                } else if (host2 != null) {
                     result = -1;
                 }
                 if (result == 0) {
                     result = s1.getPort() - s2.getPort();
                 }
             }
-        } else if (s2 == null) {
+        } else if (s2 != null) {
             result = -1;
         }
 
-        return 0;
+        return result;
     }
 
 }

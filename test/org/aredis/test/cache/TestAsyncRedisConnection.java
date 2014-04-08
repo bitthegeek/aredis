@@ -63,6 +63,7 @@ public class TestAsyncRedisConnection extends Thread {
         Random r = new Random();
         int counter = 0;
         int keysCounter = 0;
+        int i = 0;
         try {
         do {
             sb = null;
@@ -100,9 +101,11 @@ public class TestAsyncRedisConnection extends Thread {
                 }
             }
             catch(Throwable e) {
-                System.out.println("Got " + commandInfos[0].getResult() + " instead of " + val);
-                System.out.println("DEBUG:\n" + commandInfos[0].getDebugBuf());
-                System.exit(1);
+                if (i < 10) {
+                  System.out.println("Got " + commandInfos[0].getResult() + " instead of " + val);
+                  System.out.println("DEBUG:\n" + commandInfos[0].getDebugBuf());
+                }
+                // System.exit(1);
             }
             count++;
         } while(!stop);

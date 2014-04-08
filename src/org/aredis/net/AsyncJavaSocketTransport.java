@@ -63,6 +63,7 @@ public class AsyncJavaSocketTransport extends AbstractAsyncSocketTransport {
         @Override
         public void completed(Void result, AsyncHandler<Boolean> handler) {
             lastUseTime = System.currentTimeMillis();
+            lastConnectTime = lastUseTime;
             updateConnectionStatus(ConnectionStatus.OK, null);
             handler.completed(true, null);
         }
@@ -203,7 +204,6 @@ public class AsyncJavaSocketTransport extends AbstractAsyncSocketTransport {
             InetSocketAddress address = new InetSocketAddress(host, port);
             AsynchronousChannelGroup channelGroup = getChannelGroup();
             channel = AsynchronousSocketChannel.open(channelGroup);
-            System.out.println("EXISTING = " + channel.getOption(StandardSocketOptions.SO_KEEPALIVE));
             channel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
             channel.connect(address, handler, connectCompletionHandler);
         } catch (Exception e) {

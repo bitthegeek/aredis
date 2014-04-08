@@ -55,6 +55,7 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
         @Override
         public void completed(Boolean success, Throwable e) {
             boolean isInfo = log.isInfoEnabled();
+            boolean isDebug = log.isDebugEnabled();
             if(isInfo) {
                 log.info("Trying to connect..");
             }
@@ -86,6 +87,46 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
                         log.error("Internal Error Generating SELECT DB Request Data", e);
                     }
                     requestQueue.push(commandList);
+                }
+                if(!isCommonConnection && scriptStatuses.getStatusFlags().length > 0) {
+                    try {
+                        AsyncRedisConnection commonAredis = RedisServerWideData.getInstance(con).getCommonAredisConnection(null, 0);
+                        RedisCommandInfo res = commonAredis.submitCommand(new RedisCommandInfo(RedisCommand.INFO, "server")).get();
+                        String serverInfoStr = (String) res.getResult();
+                        long serverStartTime = System.currentTimeMillis();
+                        if (isDebug) {
+                            log.debug("Trying to get uptime on re-connect using common aredis " + " Run Status " + res.getRunStatus() + " Server Info Str: " + serverInfoStr);
+                        }
+                        if (serverInfoStr != null) {
+                            int startPos = serverInfoStr.indexOf("uptime_in_seconds");
+                            if (startPos >= 0) {
+                                startPos = serverInfoStr.indexOf(':', startPos);
+                                if (startPos > 0) {
+                                    int len = serverInfoStr.length();
+                                    do {
+                                        startPos++;
+                                    } while (startPos < len && !Character.isDigit(serverInfoStr.charAt(startPos)));
+                                    if (startPos < len) {
+                                        int endPos = startPos;
+                                        do {
+                                            endPos++;
+                                        } while (endPos < len && Character.isDigit(serverInfoStr.charAt(endPos)));
+                                        long upTimeInMillis = Long.parseLong(serverInfoStr.substring(startPos, endPos)) * 1000;
+                                        if (isDebug) {
+                                            log.debug("GOT UPTIME: " + (upTimeInMillis / 1000) + " for " + con);
+                                        }
+                                        // Adding 1 second cushion
+                                        serverStartTime = System.currentTimeMillis() - upTimeInMillis + 1000;
+                                    }
+                                }
+                            }
+                        }
+                        scriptStatuses.clearLoadStatusesIfFirstStatusUpdateBefore(serverStartTime);
+                    } catch (Exception ex) {
+                        scriptStatuses.clearLoadStatuses();
+                    }
+                } else if(isDebug) {
+                    log.debug("Skipping Uptime Check for Script on re-connect, isCommonConnection = " + isCommonConnection + " Length of Script Status Flags for this Server = " + scriptStatuses.getStatusFlags().length);
                 }
             }
             processNextRequests();
@@ -385,9 +426,13 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
 
     private ConnectionType connectionType;
 
+    ScriptStatuses scriptStatuses;
+
     boolean hasSelectCommands;
 
     boolean isBorrowed;
+
+    boolean isCommonConnection;
 
     static Vector<AsyncRedisConnection> openConnections = new Vector<AsyncRedisConnection>();
 
@@ -431,6 +476,7 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
         startResponseProcessingTask = new StartResponseProcessingTask();
         closeStaleConnectionTask = new CloseStaleConnectionTask();
         periodicTask = new AredisPeriodicTask();
+        scriptStatuses = RedisServerWideData.getInstance(con).getScriptStatuses();
     }
 
     /**
@@ -582,7 +628,7 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
                     accumulatedMicros += 4;
                 }
                 requestHandler.commandList = commandList;
-                isSyncSend = commandList.sendRequest(con, requestHandler);
+                isSyncSend = commandList.sendRequest(con, requestHandler, scriptStatuses);
                 if(connectionType == ConnectionType.SHARED) {
                     currentDbIndex = commandList.finalDbIndex;
                 }
@@ -625,6 +671,7 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
         if(issuccess) {
             // pSize = pipelineSize.decrementAndGet();
             pSize = pipelineSize.addAndGet(-processedCommandList.commandInfos.length);
+            processedCommandList.updateScriptStatuses(scriptStatuses);
         }
         /*
         if(pSize < 0) {

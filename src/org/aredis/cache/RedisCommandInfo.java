@@ -70,6 +70,8 @@ public class RedisCommandInfo {
 
     private RedisCommand command;
 
+    RedisCommand commandRun;
+
     private Object [] params;
 
     Object metaData;
@@ -77,6 +79,8 @@ public class RedisCommandInfo {
     ResultType resultType;
 
     Object result;
+
+    ResultType [] mbResultTypes;
 
     CommandStatus runStatus;
 
@@ -127,7 +131,7 @@ public class RedisCommandInfo {
                 Object mbArray[] = (Object []) result;
                 if(command != RedisCommand.EXEC) {
                     for(i = 0; i < mbArray.length; i++) {
-                        if((rawData = (byte[]) mbArray[i]) != null) {
+                        if(mbResultTypes[i] == ResultType.BULK && (rawData = (byte[]) mbArray[i]) != null) {
                             try {
                                 mbArray[i] = dataHandler.deserialize(metaData, rawData, 0, rawData.length, serverInfo);
                             } catch (Exception e) {
@@ -216,7 +220,7 @@ public class RedisCommandInfo {
     }
 
     /**
-     * Gets the Type of the Result
+     * Gets the Type of the Result. This will be null if the run status returned by getRunStatus is not SUCCESS.
      * @return The Result Type
      */
     public ResultType getResultType() {
@@ -360,6 +364,17 @@ public class RedisCommandInfo {
      */
     public RedisCommand getCommand() {
         return command;
+    }
+
+    /**
+     * Returns the actual command that was attempted to run.
+     * This is filled only when the command is submitted and is the same as command except when
+     * command is the pseudo-command {@link RedisCommand#EVALCHECK} in which case it is either EVAL
+     * or EVALSHA.
+     * @return The actual command run which could be different than getCommand for EVALCHECK
+     */
+    public RedisCommand getCommandRun() {
+        return commandRun;
     }
 
     /**

@@ -49,9 +49,9 @@ public interface ServerInfo {
     String getConnectionString();
 
     /**
-     * Gets an index identifying the server. The index should be got via the
-     * {@link ServerIndexes#getServerInfoIndex(ServerInfo)} method and saved as a field.
-     * @return
+     * Gets an index identifying the server. The index should be in the constructor and saved as a field.
+     * Please refer to the source code of AbstractAsyncSocketTransport.java to see the implementation.
+     * @return An index uniquely identifying this server. Indexes start from 0 and are sequential
      */
     int getServerIndex();
 }

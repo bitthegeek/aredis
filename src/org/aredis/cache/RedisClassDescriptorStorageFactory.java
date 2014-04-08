@@ -22,7 +22,7 @@
 
 package org.aredis.cache;
 
-import org.aredis.net.AsyncSocketTransport;
+import org.aredis.net.AsyncSocketTransportFactory;
 import org.aredis.net.ServerInfo;
 
 /**
@@ -39,23 +39,24 @@ public class RedisClassDescriptorStorageFactory implements ClassDescriptorStorag
     /**
      * Creates a factory along with the {@link RedisClassDescriptorStorage} to return.
      *
-     * @param pcon Connection to use
-     * @param pdbIndex dbIndex
+     * @param redisServerInfo Redis Server Info where descriptors are to be stored
      * @param pdescriptorsKey Descriptors key to use
+     * @param asyncSocketTransportFactory factory to create AsyncSocketTransport for AsyncRedisConnection
      */
-    public RedisClassDescriptorStorageFactory(AsyncSocketTransport pcon, int pdbIndex, String pdescriptorsKey) {
-        AsyncRedisConnection aredis = new AsyncRedisConnection(pcon, pdbIndex, null, ConnectionType.STANDALONE);
-        redisClassDescriptorStorage = new RedisClassDescriptorStorage(aredis, pdescriptorsKey);
+    public RedisClassDescriptorStorageFactory(RedisServerInfo redisServerInfo, String pdescriptorsKey, AsyncSocketTransportFactory asyncSocketTransportFactory) {
+        RedisServerWideData redisServerWideData = RedisServerWideData.getInstance(redisServerInfo);
+        AsyncRedisConnection aredis = redisServerWideData.getCommonAredisConnection(asyncSocketTransportFactory, redisServerInfo.getDbIndex());
+        redisClassDescriptorStorage = new RedisClassDescriptorStorage(aredis, pdescriptorsKey, redisServerInfo.getDbIndex());
     }
 
     /**
      * Creates a factory along with the {@link RedisClassDescriptorStorage} to return. The dbIndex defaults to 0 and
      * the default key JAVA_CL_DESCRIPTORS is used to store the descriptors.
      *
-     * @param pcon Connection to use
+     * @param redisServerInfo Redis Server Info where descriptors are to be stored
      */
-    public RedisClassDescriptorStorageFactory(AsyncSocketTransport pcon) {
-        this(pcon, 0, null);
+    public RedisClassDescriptorStorageFactory(RedisServerInfo redisServerInfo) {
+        this(redisServerInfo, null, null);
     }
 
     /**

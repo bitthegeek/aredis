@@ -171,6 +171,10 @@ public class AsyncRedisFactory {
                             connection.setDataHandler(dataHandler);
                         }
                         asyncRedisService.connection = connection;
+                        // The below 2 lines are for trying to initialize the common aredis connection with the
+                        // passed transportFactory since it may not be the default
+                        RedisServerWideData redisServerWideData = RedisServerWideData.getInstance(serverInfo);
+                        redisServerWideData.getCommonAredisConnection(transportFactory, 0);
                     }
                     else if(serviceType == ServiceType.CONNECTIONPOOL) {
                         AsyncSocketTransportFactory tf = poolTransportFactory;

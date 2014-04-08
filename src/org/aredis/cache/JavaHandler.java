@@ -116,7 +116,7 @@ public class JavaHandler implements DataHandler {
         }
     }
 
-    private void writeObject(CompressibleByteArrayOutputStream op, Object o, ServerInfo serverInfo) throws IOException {
+    private void writeObject(CompressibleByteArrayOutputStream op, Object o) throws IOException {
         ObjectOutputStream objOp = new ObjectOutputStream(op);
         objOp.writeObject(o);
         objOp.close();
@@ -226,7 +226,7 @@ public class JavaHandler implements DataHandler {
             }
             else {
                 op.write(0);
-                writeObject(op, data, serverInfo);
+                writeObject(op, data);
             }
         }
     }

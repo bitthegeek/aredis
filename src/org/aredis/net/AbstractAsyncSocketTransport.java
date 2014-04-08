@@ -26,6 +26,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.aredis.cache.AsyncHandler;
 import org.aredis.cache.AsyncRedisConnection;
+import org.aredis.util.SortedArray.IndexUpdater;
 
 /**
  * Provides a base implementation of AsyncSocketTransport which provides connection status handling and a retry mechanism.
@@ -67,7 +68,7 @@ public abstract class AbstractAsyncSocketTransport implements AsyncSocketTranspo
 
     protected final String connectionString;
 
-    protected final int serverIndex;
+    protected int serverIndex;
 
     protected AsyncSocketTransportFactory transportFactory;
 
@@ -77,6 +78,11 @@ public abstract class AbstractAsyncSocketTransport implements AsyncSocketTranspo
      * Last time this connection was used. Reads and writes of implementation should update this to current time.
      */
     protected long lastUseTime;
+
+    /**
+     * Last time a successful connection was made. This has to be updated by the implementation.
+     */
+    protected long lastConnectTime;
 
     /**
      * ConnectionStatus of this connection.
@@ -93,7 +99,15 @@ public abstract class AbstractAsyncSocketTransport implements AsyncSocketTranspo
         host = phost.trim();
         port = pport;
         connectionString = host + ':' + port;
-        serverIndex = ServerIndexes.getServerInfoIndex(this);
+        ServerInfo t = ServerInfoComparator.findItem(this, new IndexUpdater() {
+            @Override
+            public void updateIndex(int index) {
+                serverIndex = index;
+            }
+        });
+        if (t != this) {
+            serverIndex = t.getServerIndex();
+        }
         connectionState = ConnectionState.getInstance(connectionString);
         connectionStatus = ConnectionStatus.CLOSED;
         retryHandler = new RetryHandler();
@@ -133,6 +147,12 @@ public abstract class AbstractAsyncSocketTransport implements AsyncSocketTranspo
             long idleTimeoutMillis = config.getMaxIdleTimeMillis();
             if(idleTimeoutMillis != 0 && System.currentTimeMillis() - lastUseTime >= idleTimeoutMillis) {
                 status = ConnectionStatus.STALE;
+            } else {
+                // Return retry if there has been a down time since this connection was made
+                long lastDownTime = connectionState.getLastDownTime();
+                if (lastDownTime > 0 && lastConnectTime > 0 && lastDownTime >= lastConnectTime) {
+                    status = ConnectionStatus.RETRY;
+                }
             }
         }
         else {

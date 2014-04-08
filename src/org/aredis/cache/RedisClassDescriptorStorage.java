@@ -57,6 +57,8 @@ public class RedisClassDescriptorStorage extends ClassDescriptorStorage {
 
     private String descriptorsKey;
 
+    private int dbIndex;
+
     private volatile ClassDescriptors descriptors;
 
     /**
@@ -65,37 +67,49 @@ public class RedisClassDescriptorStorage extends ClassDescriptorStorage {
      *
      * @param paredis Async Redis Connection to Use
      * @param pdescriptorsKey Key in which to store the Descriptors
+     * @param pdbIndex The dbIndex to use. This could be different from that in aredis
      */
-    public RedisClassDescriptorStorage(AsyncRedisConnection paredis, String pdescriptorsKey) {
+    public RedisClassDescriptorStorage(AsyncRedisConnection paredis, String pdescriptorsKey, int pdbIndex) {
         aredis = paredis;
         aredis.setDataHandler(AsyncRedisConnection.JAVA_HANDLER);
         if(pdescriptorsKey == null) {
             pdescriptorsKey = DEFAULT_DESCRIPTORS_KEY;
         }
         descriptorsKey = pdescriptorsKey;
+        dbIndex = pdbIndex;
     }
 
     /**
      * Creates a storage for the given Redis Connection with the defalt key "JAVA_CL_DESCRIPTORS".
-     * The type of the connection must be STANDALONE or SHARED.
+     * The type of the connection must be STANDALONE or SHARED. The dbIndex of the passed redis connection
+     * is the dbIndex used.
      *
      * @param paredis Async Redis Connection to Use
      */
     public RedisClassDescriptorStorage(AsyncRedisConnection paredis) {
-        this(paredis, DEFAULT_DESCRIPTORS_KEY);
+        this(paredis, DEFAULT_DESCRIPTORS_KEY, paredis.getDbIndex());
     }
 
     @Override
     public ClassDescriptors getMasterClassDescriptors(boolean refreshFromStore) throws IOException {
         ClassDescriptors masterDescriptors = descriptors;
         if(masterDescriptors == null || refreshFromStore) {
-            synchronized(this) {
+            boolean requiresDbChange = false;
+            synchronized(aredis) {
                 if(descriptors == masterDescriptors) {
                     RedisCommandInfo commandInfo = null;
                     try {
+                        if(dbIndex != aredis.getDbIndex()) {
+                            requiresDbChange = true;
+                            aredis.submitCommand(new RedisCommandInfo(RedisCommand.SELECT, dbIndex));
+                        }
                         commandInfo = aredis.submitCommand(new RedisCommandInfo(RedisCommand.GET, descriptorsKey)).get();
                     } catch (Exception e) {
                         throw new IOException(e);
+                    } finally {
+                        if (requiresDbChange) {
+                            aredis.submitCommand(new RedisCommandInfo(RedisCommand.SELECT, aredis.getDbIndex()));
+                        }
                     }
                     masterDescriptors = (ClassDescriptors) commandInfo.getResult();
                     if(commandInfo.getRunStatus() != CommandStatus.SUCCESS) {
@@ -127,12 +141,17 @@ public class RedisClassDescriptorStorage extends ClassDescriptorStorage {
             throw new IllegalArgumentException("master Version No: " + currentVersionNo + " < updated Version No: " + updatedDescriptors.getVersionNo() + " - 1");
         }
         if(currentVersionNo + 1 == updatedDescriptors.getVersionNo()) {
-            synchronized(this) {
+            synchronized(aredis) {
                 if(currentVersionNo == descriptors.getVersionNo()) {
                     boolean requiresUnWatch = true;
+                    boolean requiresDbChange = false;
                     try {
                         RedisCommandInfo[] commandInfos;
                         try {
+                            if(dbIndex != aredis.getDbIndex()) {
+                                requiresDbChange = true;
+                                aredis.submitCommand(new RedisCommandInfo(RedisCommand.SELECT, dbIndex));
+                            }
                             commandInfos = aredis.submitCommands(new RedisCommandInfo[] {
                                   new RedisCommandInfo(RedisCommand.WATCH, descriptorsKey),
                                   new RedisCommandInfo(RedisCommand.GET, descriptorsKey)
@@ -183,6 +202,9 @@ public class RedisClassDescriptorStorage extends ClassDescriptorStorage {
                         try {
                             if(requiresUnWatch) {
                                 aredis.submitCommand(new RedisCommandInfo(RedisCommand.UNWATCH));
+                            }
+                            if (requiresDbChange) {
+                                aredis.submitCommand(new RedisCommandInfo(RedisCommand.SELECT, aredis.getDbIndex()));
                             }
                         }
                         catch(Exception e) {

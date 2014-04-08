@@ -102,6 +102,8 @@ class RedisCommandList implements AsyncHandler<Integer> {
 
     private AsyncSocketTransport con;
 
+    private ScriptStatuses scriptStatuses;
+
     RedisCommandInfo commandInfos[];
 
     private IndividualResponseHandler individualResponseHandler;
@@ -115,6 +117,8 @@ class RedisCommandList implements AsyncHandler<Integer> {
     int endIndex;
 
     boolean hasSelectCommands;
+
+    private boolean hasScriptCommands;
 
     public RedisCommandList(RedisCommandInfo pcommandInfos[], Queue<RedisCommandInfo> pqueuedMultiCommands, AsyncHandler<RedisCommandInfo[]> pfinalResponseHandler, boolean requireFutureResults) {
         commandInfos = pcommandInfos;
@@ -165,7 +169,7 @@ class RedisCommandList implements AsyncHandler<Integer> {
                 int index = ++requestIndex;
                 if(index < endIndex) {
                     commandInfos[index].runStatus = CommandStatus.NETWORK_ERROR;
-                    if(commandObjects[index].sendRequest(con, this) <= 0) {
+                    if(commandObjects[index].sendRequest(con, this, scriptStatuses) <= 0) {
                         break;
                     }
                 }
@@ -180,15 +184,16 @@ class RedisCommandList implements AsyncHandler<Integer> {
         }
     }
 
-    public boolean sendRequest(AsyncSocketTransport pcon, AsyncHandler<RedisCommandList> prequestHandler) {
+    public boolean sendRequest(AsyncSocketTransport pcon, AsyncHandler<RedisCommandList> prequestHandler, ScriptStatuses scriptStats) {
         requestHandler = prequestHandler;
         requestIndex = 0;
         bytesWritten = 0;
         con = pcon;
+        scriptStatuses = scriptStats;
         int len = 0;
         for(requestIndex = startIndex; requestIndex < endIndex; requestIndex++) {
             commandInfos[requestIndex].runStatus = CommandStatus.NETWORK_ERROR;
-            len = commandObjects[requestIndex].sendRequest(con, this);
+            len = commandObjects[requestIndex].sendRequest(con, this, scriptStats);
             if(len > 0) {
                 commandObjects[requestIndex].requestData = null;
             }
@@ -265,6 +270,9 @@ class RedisCommandList implements AsyncHandler<Integer> {
             if(commandInfo.runStatus != CommandStatus.SKIPPED) {
                 msg = "This commandInfo with run status " + commandInfo.runStatus + " seems to have been already submitted. Resubmit commandInfos only if they have status SKIPPED. " + command + ' ' + params;
                 break;
+            }
+            if(command.isScriptCommand()) {
+                hasScriptCommands = true;
             }
             if(command == RedisCommand.SUBSCRIBE || command == RedisCommand.PSUBSCRIBE || command == RedisCommand.UNSUBSCRIBE || command == RedisCommand.PUNSUBSCRIBE) {
                 msg = "" + command + " not allowed with AsyncRedisConnection. Please use RedisSubscription class for subscribing to/unsubscribing message channels";
@@ -408,5 +416,85 @@ class RedisCommandList implements AsyncHandler<Integer> {
         finalDbIndex = lastDbIndex;
 
         return requiredDbIndex;
+    }
+
+    public void updateScriptStatuses(ScriptStatuses scriptStatuses) {
+        if(hasScriptCommands) {
+            int [] flags = null;
+            for(int i = 0; i < commandObjects.length; i++) {
+                RedisCommandInfo commandInfo = commandObjects[i].commandInfo;
+                Object[] params = commandInfo.getParams();
+                RedisCommand command = commandInfo.getCommandRun();
+                if (params.length > 0 && command.isScriptCommand() && commandInfo.runStatus == CommandStatus.SUCCESS) {
+                    ResultType resultType = commandInfo.resultType;
+                    if (command == RedisCommand.EVALSHA && commandInfo.getCommand() == RedisCommand.EVALCHECK && (resultType != ResultType.REDIS_ERROR || ((String) commandInfo.getResult()).indexOf("NOSCRIPT") < 0)) {
+                        // We can continue since this means the script has already been checked to be loaded
+                        continue;
+                    }
+                    Object p = null;
+                    Script s = null;
+                    String scriptCommand = null;
+                    if (command == RedisCommand.SCRIPT) {
+                        scriptCommand = (String) params[0];
+                        if (resultType != ResultType.REDIS_ERROR) {
+                            if ("EXISTS".equalsIgnoreCase(scriptCommand)) {
+                                Object [] loadStatuses = (Object[]) commandInfo.getResult();
+                                for(int paramIndex = 1; paramIndex < params.length; paramIndex++) {
+                                    p = params[paramIndex];
+                                    if (p instanceof Script) {
+                                        s = (Script) p;
+                                        if ("1".equals(loadStatuses[paramIndex - 1])) {
+                                            flags = scriptStatuses.setLoaded(flags, s, true);
+                                        } else if (scriptStatuses.clearLoadStatusesIfLoaded(s)) {
+                                            flags = new int[0];
+                                            break;
+                                        }
+                                    }
+                                }
+                                continue;
+                            } else if ("FLUSH".equalsIgnoreCase((String) params[0])) {
+                                scriptStatuses.clearLoadStatuses();
+                                flags = new int[0];
+                                continue;
+                            }
+                        }
+                        if (params.length < 2) {
+                            continue;
+                        }
+                        p = params[1];
+                    } else {
+                        p = params[0];
+                    }
+                    if (p instanceof Script) {
+                        s = (Script) p;
+                        Boolean loadStatus = null;
+                        if (command == RedisCommand.EVALSHA) {
+                            loadStatus = resultType != ResultType.REDIS_ERROR || ((String) commandInfo.getResult()).indexOf("NOSCRIPT") < 0;
+                        } else if (command == RedisCommand.EVAL) {
+                            loadStatus = true;
+                        } else if (command == RedisCommand.SCRIPT) {
+                            if ("LOAD".equalsIgnoreCase(scriptCommand)) {
+                                if (resultType != ResultType.REDIS_ERROR) {
+                                    loadStatus = true;
+                                }
+                            }
+                        }
+                        if (loadStatus != null) {
+                            if (loadStatus) {
+                                flags = scriptStatuses.setLoaded(flags, s, true);
+                            } else {
+                                // When we encounter any script which is not loaded but tagged as loaded in
+                                // ScriptStatuses we clear all flags since it means that SCRIPT FLUSH is run
+                                // or another Redis Server has taken the existing servers place
+                                if (scriptStatuses.clearLoadStatusesIfLoaded(s)) {
+                                    flags = new int[0];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
     }
 }

@@ -24,12 +24,14 @@ package org.aredis.cache;
 
 import java.io.IOException;
 import java.util.Queue;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.aredis.cache.RedisCommandInfo.CommandStatus;
 import org.aredis.cache.RedisCommandInfo.ResultType;
 import org.aredis.io.CompressibleByteArrayOutputStream;
+import org.aredis.io.RedisConstants;
 import org.aredis.net.AsyncSocketTransport;
 import org.aredis.net.ServerInfo;
 
@@ -73,19 +75,34 @@ class RedisCommandObject implements AsyncHandler<RedisRawResponse> {
         boolean isInfo = log.isInfoEnabled();
         bop.setCompressionEnabled(false);
         int savedCompressionThreshold = bop.getCompressionThreshold();
-        int len;
-        int numPos = bop.getCount();
-        bop.write(filler);
-        int curDataStart = bop.getCount();
-        // Write the data after the filler
-        if(!isData || dataHandler == null) {
-            dataHandler = AsyncRedisConnection.KEY_HANDLER;
-        }
         if(!isData && param instanceof Number) {
             param = param.toString();
         }
+        String commandOrKeyOrParam = null;
+        if(!isData || dataHandler == null) {
+            dataHandler = AsyncRedisConnection.KEY_HANDLER;
+            commandOrKeyOrParam = (String) param;
+        }
+        int i, len = filler.length;
+        if (commandOrKeyOrParam != null) {
+            i = commandOrKeyOrParam.length();
+            len = 1;
+            while (i >= 10) {
+                len++;
+                i /= 10;
+            }
+            len += 3;
+        }
+        int numPos = bop.getCount();
+        bop.write(filler, 0, len);
+        int curDataStart = bop.getCount();
+        // Write the data after the filler
         try {
-            dataHandler.serialize(param, commandInfo.metaData, bop, serverInfo);
+            if (commandOrKeyOrParam != null) {
+                bop.write(commandOrKeyOrParam.getBytes(RedisConstants.UTF_8_CHARSET));
+            } else {
+                dataHandler.serialize(param, commandInfo.metaData, bop, serverInfo);
+            }
             bop.close();
             if(isInfo) {
                 String msg = bop.getCompressionInfo();
@@ -104,8 +121,11 @@ class RedisCommandObject implements AsyncHandler<RedisRawResponse> {
         byte[] dataLenAsBytes = String.valueOf(dataLen).getBytes("UTF-8");
         int argSizeInfoLen = dataLenAsBytes.length + 3;
         int newDataStart = curDataStart;
-        int diff = argSizeInfoLen - filler.length;
+        int diff = argSizeInfoLen - len;
         if(diff != 0) {
+            if (commandOrKeyOrParam != null) {
+                log.error("Unexpected Param Len Descripency " + diff + " org = " + len);
+            }
             while(diff > 0) {
                 len = diff;
                 if(len > filler.length) {
@@ -135,7 +155,14 @@ class RedisCommandObject implements AsyncHandler<RedisRawResponse> {
         if(commandInfo.serverInfo == null) {
             commandInfo.serverInfo = sInfo;
         }
+        Script s;
+        Object[] params = commandInfo.getParams();
         RedisCommand command = commandInfo.getCommand();
+        if (command == RedisCommand.EVALCHECK) {
+            // Use EVALSHA, Check and Load will be done during sendRequest
+            command = RedisCommand.EVALSHA;
+        }
+        commandInfo.commandRun = command;
         DataHandler dataHandler = commandInfo.getDataHandler();
         Object param = command.name();
         char[] argTypes = command.argTypes;
@@ -146,7 +173,6 @@ class RedisCommandObject implements AsyncHandler<RedisRawResponse> {
         int nextArgCount = 0;
         boolean isData = false, nextIsData = false;
         DataHandler dh = null, nextDh = null;
-        Object[] params = commandInfo.getParams();
 
         int paramCount = 0;
         if(params != null) {
@@ -162,6 +188,26 @@ class RedisCommandObject implements AsyncHandler<RedisRawResponse> {
             i++;
             if(i < paramCount) {
                 param = params[i];
+                if (param instanceof Script) {
+                    s = (Script) param;
+                    switch (command) {
+                      case EVAL:
+                        param = s.getScript();
+                        break;
+                      case EVALSHA:
+                        param = s.getSha1sum();
+                        break;
+                      case SCRIPT:
+                        if ("EXISTS".equalsIgnoreCase(params[0].toString())) {
+                            param = s.getSha1sum();
+                        } else {
+                            param = s.getScript();
+                        }
+                        break;
+                      default:
+                        break;
+                    }
+                }
                 if(nextArgCount > 0) {
                     nextArgCount--;
                     dh = nextDh;
@@ -204,10 +250,84 @@ class RedisCommandObject implements AsyncHandler<RedisRawResponse> {
         }
     }
 
-    public int sendRequest(AsyncSocketTransport con, AsyncHandler<Integer> requestHandler) {
+    public int sendRequest(AsyncSocketTransport con, AsyncHandler<Integer> requestHandler, ScriptStatuses scriptStatuses) {
         boolean isDebug = log.isDebugEnabled();
         if(isDebug) {
             log.debug("Sending Request: " + commandInfo.getCommand() + ' ' + commandInfo.getParams());
+        }
+        Script s;
+        Object[] params = commandInfo.getParams();
+        RedisCommand command = commandInfo.getCommand();
+        if (command == RedisCommand.EVALCHECK && params.length > 0) {
+            int [] statusFlags = scriptStatuses.getStatusFlags();
+            s = (Script) params[0];
+            boolean isLoaded = ScriptStatuses.isLoaded(statusFlags, s);
+            // The Below If block is optional. It attempts to check and load the script synchronously using the common
+            // Redis connection. If the below block is not there EVALCHECK on an unloaded script will use EVAL
+            // instead of EVALSHA and the script will be eventually tagged as loaded when the EVAL completes.
+            // However many EVAL commands for the same script could enter the pipeline before the first one
+            // completes.
+            if (!isLoaded) {
+                AsyncRedisConnection commonAredis = RedisServerWideData.getInstance(con).getCommonAredisConnection(null, 0);
+                synchronized (commonAredis) {
+                    statusFlags = scriptStatuses.getStatusFlags();
+                    isLoaded = ScriptStatuses.isLoaded(statusFlags, s);
+                    if (!isLoaded) {
+                        try {
+                            Object [] result = (Object[]) commonAredis.submitCommand(new RedisCommandInfo(RedisCommand.SCRIPT, "EXISTS", s)).get().getResult();
+                            String debugStr = "";
+                            if (result != null && result.length > 0) {
+                                if (!"1".equals(result[0])) {
+                                    debugStr = "LOAD CALLED ";
+                                    // Attempt to load it
+                                    commonAredis.submitCommand(new RedisCommandInfo(RedisCommand.SCRIPT, "LOAD", s)).get(5, TimeUnit.SECONDS);
+                                }
+                            }
+                            // If the above check and load attempt was successful the statusFlags would have
+                            // got updated, so just pick the loaded status from the status flags
+                            statusFlags = scriptStatuses.getStatusFlags();
+                            isLoaded = ScriptStatuses.isLoaded(statusFlags, s);
+                            if (isDebug) {
+                                log.debug(debugStr + "UPDATED ISLOADED " + isLoaded + " FOR scriptIndex " + s.getIndex() + " SERVERINFO " + con + " SERVERINDEX " + con.getServerIndex());
+                            }
+                        } catch (Exception e) {
+                            log.error("Error Trying to Load Script: " + s.getScript(), e);
+                        }
+                    }
+                }
+            }
+
+            if (!isLoaded) {
+                command = RedisCommand.EVAL;
+                // Hacky replacement of EVALSHA and the sha1sum by script in the final
+                // serialized data. However EVAL command is not normally expected since we
+                // do an EXISTS check and LOAD. So it is Ok.
+                int pos = 1;
+                do {
+                    pos++;
+                } while (requestData[pos] != '\r' || requestData[pos+1] != '\n');
+                pos += 2;
+                byte [] scriptBytes = s.getScript().getBytes(RedisConstants.UTF_8_CHARSET);
+                byte [] sha1sumBytes = s.getSha1sum().getBytes(RedisConstants.UTF_8_CHARSET);
+                int orgParamOffset = pos + ("$7\r\nEVALSHA\r\n$" + sha1sumBytes.length + "\r\n").getBytes(RedisConstants.UTF_8_CHARSET).length + sha1sumBytes.length;
+                byte [] newPrefixData = ("$4\r\nEVAL\r\n$" + scriptBytes.length + "\r\n").getBytes(RedisConstants.UTF_8_CHARSET);
+                int newParamOffset = pos + newPrefixData.length + scriptBytes.length;
+                int newRequestDataLength = requestDataLength + newParamOffset - orgParamOffset;
+                byte [] newRequestData = requestData;
+                if (newRequestData.length < newRequestDataLength) {
+                    newRequestData = new byte[newRequestDataLength];
+                }
+                System.arraycopy(requestData, orgParamOffset, newRequestData, newParamOffset, requestDataLength - orgParamOffset);
+                System.arraycopy(scriptBytes, 0, newRequestData, pos + newPrefixData.length, scriptBytes.length);
+                System.arraycopy(newPrefixData, 0, newRequestData, pos, newPrefixData.length);
+                System.arraycopy(requestData, 0, newRequestData, 0, pos);
+                requestData = newRequestData;
+                requestDataLength = newRequestDataLength;
+                commandInfo.commandRun = command;
+            }
+            if (isDebug && commandInfo.getCommand() != commandInfo.commandRun) {
+                log.debug("Original Command = " + commandInfo.getCommand() + " Command Run = " + commandInfo.commandRun);
+            }
         }
         int synchronousBytesSent = con.write(requestData, 0, requestDataLength, requestHandler);
         return synchronousBytesSent;
@@ -268,11 +388,15 @@ class RedisCommandObject implements AsyncHandler<RedisRawResponse> {
                         }
                     }
                     else {
+                        ResultType [] mbResultTypes = new ResultType[rawResults.length];
+                        redisCommandInfo.mbResultTypes = mbResultTypes;
                         // Regular Multibulk
                         for(i = 0; i < rawResults.length; i++) {
                             RedisRawResponse nextRawResult = rawResults[i];
                             if(nextRawResult != null) {
-                                if(nextRawResult.getResultType() == ResultType.BULK) {
+                                ResultType nextResultType = nextRawResult.getResultType();
+                                mbResultTypes[i] = nextResultType;
+                                if(nextResultType == ResultType.BULK || nextResultType == ResultType.INT || nextResultType == ResultType.STRING) {
                                     results[i] = nextRawResult.getResult();
                                 }
                                 else {

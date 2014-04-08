@@ -609,7 +609,7 @@ public class RedisSubscriptionConnection {
                     for(int i = 0; i < commandObject.commandInfo.getParams().length; i++) sb.append(' ').append(commandObject.commandInfo.getParams()[i]);
                     log.debug(sb.toString());
                 }
-                isSyncSend = commandObject.sendRequest(con, requestHandler) > 0;
+                isSyncSend = commandObject.sendRequest(con, requestHandler, null) > 0;
                 // System.out.println("SYNCSEND = " + isSyncSend);
             }
             else {

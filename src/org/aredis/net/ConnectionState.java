@@ -61,6 +61,8 @@ public class ConnectionState {
 
     private long downSince;
 
+    private volatile long lastDownTime;
+
     private long lastRetryTime;
 
     private Throwable lastException;
@@ -164,6 +166,7 @@ public class ConnectionState {
         else {
             long now = System.currentTimeMillis();
             downSince = now;
+            lastDownTime = now;
             lastRetryTime = now;
             status = ConnectionStatus.DOWN;
             lastException = exception;
@@ -201,5 +204,14 @@ public class ConnectionState {
      */
     public synchronized long getDownSince() {
         return downSince;
+    }
+
+    /**
+     * Milliseconds time when the connection was found to be down. This is not reset on re-connection.
+     * The connection is re-tried if there was a downtime since a connection was made.
+     * @return Last time when one of the AsyncRedisConnection's had a downtime with this server
+     */
+    public long getLastDownTime() {
+        return lastDownTime;
     }
 }

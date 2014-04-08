@@ -22,10 +22,8 @@
 
 package org.aredis.cache;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Arrays;
 
-import org.aredis.net.AsyncSocketTransport;
 import org.aredis.net.AsyncSocketTransportFactory;
 import org.aredis.net.ServerInfo;
 
@@ -44,7 +42,7 @@ public class PerConnectionRedisClassDescriptorStorageFactory implements ClassDes
 
     private String descriptorsKey;
 
-    private volatile Map<String, RedisClassDescriptorStorage> serverStorageMap;
+    private volatile RedisClassDescriptorStorage [] storageByServerIndex = new RedisClassDescriptorStorage[0];
 
     /**
      * Creates a factory object.
@@ -74,36 +72,35 @@ public class PerConnectionRedisClassDescriptorStorageFactory implements ClassDes
     @Override
     public RedisClassDescriptorStorage getStorage(ServerInfo conInfo) {
         RedisClassDescriptorStorage storage = null;
-        Map<String, RedisClassDescriptorStorage> map = serverStorageMap;
-        String serverKey = conInfo.getConnectionString();
-        if(map != null) {
-            storage = map.get(serverKey);
+        int serverIndex = conInfo.getServerIndex();
+        if (serverIndex > 100000) {
+            throw new RuntimeException("ServerIndex too big, 100000 is max allowed: " + serverIndex);
+        }
+        RedisClassDescriptorStorage[] storages = storageByServerIndex;
+        if(serverIndex < storages.length) {
+            storage = storages[serverIndex];
         }
         if(storage == null) {
             synchronized(this) {
                 // DCL
-                if(map != serverStorageMap) {
-                    map = serverStorageMap;
-                    if(map != null) {
-                        storage = map.get(serverKey);
-                    }
+                storages = storageByServerIndex;
+                int newLen = storages.length;
+                if (newLen > serverIndex) {
+                    storage = storages[serverIndex];
+                } else {
+                    newLen = serverIndex + 1;
                 }
                 if(storage == null) {
                     AsyncSocketTransportFactory tf = asyncSocketTransportFactory;
                     if(tf == null) {
                         tf = AsyncSocketTransportFactory.getDefault();
                     }
-                    AsyncSocketTransport con = tf.getTransport(conInfo.getHost(), conInfo.getPort());
-                    AsyncRedisConnection aredis = new AsyncRedisConnection(con, dbIndex, null, ConnectionType.STANDALONE);
-                    storage = new RedisClassDescriptorStorage(aredis, descriptorsKey);
-                    if(map != null) {
-                        map = new HashMap<String, RedisClassDescriptorStorage>(map);
-                    }
-                    else {
-                        map = new HashMap<String, RedisClassDescriptorStorage>();
-                    }
-                    map.put(serverKey, storage);
-                    serverStorageMap = map;
+                    RedisServerWideData redisServerWideData = RedisServerWideData.getInstance(conInfo);
+                    AsyncRedisConnection aredis = redisServerWideData.getCommonAredisConnection(tf, dbIndex);
+                    storage = new RedisClassDescriptorStorage(aredis, descriptorsKey, dbIndex);
+                    storages = Arrays.copyOf(storages, newLen);
+                    storages[serverIndex] = storage;
+                    storageByServerIndex = storages;
                 }
             }
         }

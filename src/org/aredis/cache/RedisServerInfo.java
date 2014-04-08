@@ -22,8 +22,9 @@
 
 package org.aredis.cache;
 
-import org.aredis.net.ServerIndexes;
 import org.aredis.net.ServerInfo;
+import org.aredis.net.ServerInfoComparator;
+import org.aredis.util.SortedArray.IndexUpdater;
 
 /**
  * Identifies a Redis server with its host, port and dbIndex. Provides an implementation of the hashCode, equals and compareTo methods
@@ -53,9 +54,17 @@ public class RedisServerInfo implements ServerInfo, Comparable<RedisServerInfo> 
         host = phost;
         port = pport;
         connectionString = host + ':' + port;
-        serverIndex = ServerIndexes.getServerInfoIndex(this);
         dbIndex = pdbIndex;
         redisConnectionString = host + ':' + port + '/' + dbIndex;
+        ServerInfo t = ServerInfoComparator.findItem(this, new IndexUpdater() {
+            @Override
+            public void updateIndex(int index) {
+                serverIndex = index;
+            }
+        });
+        if (t != this) {
+            serverIndex = t.getServerIndex();
+        }
     }
 
     /**

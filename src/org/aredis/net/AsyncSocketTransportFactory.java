@@ -32,7 +32,9 @@ import java.util.Properties;
  * The default implementation is to return an {@link AsyncJavaSocketTransport} object constructed via the host, port and this as the transportFactory.
  * The implementation can be changed to another class providing the same constructor. The Fully qualified className has to be specied as a
  * System property org.aredis.net.AsyncSocketTransport or as a property with the same name in aredis_transport.properties which should be in the CLASSPATH.\
- * Set the className as custom if you want to extend this class and override getTransport.
+ * Set the className as custom if you want to extend this class and override getTransport and set defaultFactory in the sub-class's static block so that the
+ * getDefault method returns the overridden AsyncSocketTransportFactory.
+ *
  * @author suresh
  *
  */

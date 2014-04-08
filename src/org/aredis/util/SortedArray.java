@@ -4,12 +4,25 @@ import java.util.Arrays;
 import java.util.Comparator;
 
 
+/**
+ * A utility class to hold a unique instance of comparable objects like ServerInfo or Script in an array.
+ * Each object is assigned a new index when it is not found which the created object is expected to hold.
+ *
+ * This enables creation of Array based data structures which can be looked up by the object index instead of a map.
+ *
+ * @author suresh
+ *
+ * @param <T>
+ */
 public class SortedArray<T> {
 
+    public static interface IndexUpdater {
+        void updateIndex(int index);
+    }
     private volatile Object [] items = new Object[0];
 
-    public int getIndex(T [] itemHolder, Comparator<T> c) {
-        Object item = itemHolder[0];
+    public T findItem(T item, Comparator<T> c, IndexUpdater indexUpdater) {
+        T result = null;
         Object[] itemsArray = items;
         int arrayIndex;
         if (c != null) {
@@ -30,20 +43,24 @@ public class SortedArray<T> {
                     }
                 }
                 if (arrayIndex < 0) {
-                    int i = -arrayIndex - 1;
                     index = itemsArray.length;
                     itemsArray = new Object[index + 1];
+                    int i = -arrayIndex - 1;
                     System.arraycopy(itemsArray1, 0, itemsArray, 0, i);
                     itemsArray[i] = item;
                     System.arraycopy(itemsArray1, i, itemsArray, i + 1, index - i);
+                    if (indexUpdater != null) {
+                        indexUpdater.updateIndex(index);
+                    }
                     items = itemsArray;
+                    result = item;
                 }
             }
         }
         if (arrayIndex >= 0) {
-            itemHolder[0] = (T) itemsArray[arrayIndex];
+            result = (T) itemsArray[arrayIndex];
         }
 
-        return index;
+        return result;
     }
 }

@@ -174,6 +174,13 @@ public enum RedisCommand {
     ZSCORE("kp"),
     ZUNIONSTORE("kck@p");
 
+    static {
+        EVAL.scriptCommand = true;
+        EVALSHA.scriptCommand = true;
+        EVALCHECK.scriptCommand = true;
+        SCRIPT.scriptCommand = true;
+    }
+
     static interface ShardedResultHandler {
         void aggregateResults(RedisCommandInfo shardedCommand);
     }
@@ -347,6 +354,8 @@ public enum RedisCommand {
 
     private boolean stateful;
 
+    private boolean scriptCommand;
+
     /**
      * Gets the command argument types as a character array. In the array k stands for a key, v stands for a value,
      * p stands for a parameter like the expiry in SETEX command or the increment number in INCRBY command, c stands for
@@ -391,5 +400,14 @@ public enum RedisCommand {
      */
     public boolean isStateful() {
         return stateful;
+    }
+
+    /**
+     * Identifies if the command is one of the SCRIPT commands, EVAL, EVALSHA, EVALCHECK or SCRIPT.
+     *
+     * @return True if the command is a script command, false otherwise
+     */
+    public boolean isScriptCommand() {
+        return scriptCommand;
     }
 }
