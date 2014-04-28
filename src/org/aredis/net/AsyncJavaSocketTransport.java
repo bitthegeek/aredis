@@ -33,6 +33,7 @@ import java.nio.channels.CompletionHandler;
 import java.util.concurrent.TimeUnit;
 
 import org.aredis.cache.AsyncHandler;
+import org.aredis.cache.AsyncRedisConnection;
 import org.aredis.util.concurrent.SimpleThreadFactory;
 
 /**
@@ -144,6 +145,27 @@ public class AsyncJavaSocketTransport extends AbstractAsyncSocketTransport {
 
     }
 
+    private static class SendFailedTask implements Runnable {
+
+        private CompletionHandler<Integer, AsyncHandler<Integer>> completionHandler;
+
+        private Throwable e;
+
+        private AsyncHandler<Integer> handler;
+
+        public SendFailedTask(CompletionHandler<Integer, AsyncHandler<Integer>> pcompletionHandler, Throwable pe, AsyncHandler<Integer> phandler) {
+            completionHandler = pcompletionHandler;
+            e = pe;
+            handler = phandler;
+        }
+
+        @Override
+        public void run() {
+            completionHandler.failed(e, handler);
+        }
+
+    }
+
     /**
      * Channel group used by the AsyncSocketChannels. This can be changed before the 1st AsyncJavaSocketTransport is created.
      */
@@ -185,7 +207,7 @@ public class AsyncJavaSocketTransport extends AbstractAsyncSocketTransport {
     }
 
     @Override
-    public void connectInternal(AsyncHandler<Boolean> handler) {
+    public void connectInternal(final AsyncHandler<Boolean> handler) {
         try {
             close();
             if(readBuffer == null || readBuffer.capacity() != config.getReadBufSize()) {
@@ -206,8 +228,15 @@ public class AsyncJavaSocketTransport extends AbstractAsyncSocketTransport {
             channel = AsynchronousSocketChannel.open(channelGroup);
             channel.setOption(StandardSocketOptions.SO_KEEPALIVE, true);
             channel.connect(address, handler, connectCompletionHandler);
-        } catch (Exception e) {
-            handler.completed(false, e);
+        } catch (final Exception e) {
+            AsyncRedisConnection.bootstrapExecutor.execute(new Runnable() {
+
+                @Override
+                public void run() {
+                    connectCompletionHandler.failed(e, handler);
+                }
+
+            });
         }
     }
 
@@ -241,7 +270,8 @@ public class AsyncJavaSocketTransport extends AbstractAsyncSocketTransport {
             }
         }
         catch(Exception e) {
-            handler.completed(-1, e);
+            bytesRead = 0;
+            AsyncRedisConnection.bootstrapExecutor.execute(new SendFailedTask(readCompletionHandler, e, handler));
         }
 
         return bytesRead;
@@ -258,24 +288,30 @@ public class AsyncJavaSocketTransport extends AbstractAsyncSocketTransport {
             bytesWritten = len;
         }
         int retVal = bytesWritten;
-        if(bytesWritten > 0) {
-            writeBuffer.put(b, ofs, bytesWritten);
-        }
-        if(bytesWritten < len) {
-            retVal = 0;
-            if(!fromCallback) {
-                writeCompletionHandler.bytesTransferred = 0;
+        try {
+            if(bytesWritten > 0) {
+                writeBuffer.put(b, ofs, bytesWritten);
             }
-            writeBuffer.flip();
-            writeCompletionHandler.b = b;
-            writeCompletionHandler.ofs = ofs + bytesWritten;
-            writeCompletionHandler.len = len - bytesWritten;
-            channel.write(writeBuffer, config.getWriteTimeoutMillis(), TimeUnit.MILLISECONDS, handler, writeCompletionHandler);
+            if(bytesWritten < len) {
+                retVal = 0;
+                if(!fromCallback) {
+                    writeCompletionHandler.bytesTransferred = 0;
+                }
+                writeBuffer.flip();
+                writeCompletionHandler.b = b;
+                writeCompletionHandler.ofs = ofs + bytesWritten;
+                writeCompletionHandler.len = len - bytesWritten;
+                channel.write(writeBuffer, config.getWriteTimeoutMillis(), TimeUnit.MILLISECONDS, handler, writeCompletionHandler);
+            }
+            else if(fromCallback) {
+                int bytesTransferred = writeCompletionHandler.bytesTransferred;
+                writeCompletionHandler.bytesTransferred = 0;
+                handler.completed(bytesTransferred, null);
+            }
         }
-        else if(fromCallback) {
-            int bytesTransferred = writeCompletionHandler.bytesTransferred;
-            writeCompletionHandler.bytesTransferred = 0;
-            handler.completed(bytesTransferred, null);
+        catch (Exception e) {
+            retVal = 0;
+            AsyncRedisConnection.bootstrapExecutor.execute(new SendFailedTask(writeCompletionHandler, e, handler));
         }
 
         return retVal;
@@ -295,8 +331,13 @@ public class AsyncJavaSocketTransport extends AbstractAsyncSocketTransport {
     public boolean flush(AsyncHandler<Integer> handler) {
         boolean requiresFlush = writeBuffer.capacity() > writeBuffer.remaining();
         if(requiresFlush) {
-            writeBuffer.flip();
-            channel.write(writeBuffer, config.getWriteTimeoutMillis(), TimeUnit.MILLISECONDS, handler, flushCompletionHandler);
+            try {
+                writeBuffer.flip();
+                channel.write(writeBuffer, config.getWriteTimeoutMillis(), TimeUnit.MILLISECONDS, handler, flushCompletionHandler);
+            }
+            catch (Exception e) {
+                AsyncRedisConnection.bootstrapExecutor.execute(new SendFailedTask(flushCompletionHandler, e, handler));
+            }
         }
 
         return requiresFlush;
