@@ -42,7 +42,7 @@
       <fileset dir="src" defaultexcludes="yes">
       </fileset>
 
-      <link offline="true" href="http://download.oracle.com/javase/7/docs/api/" packagelistLoc="java-package-list"/>
+      <link offline="true" href="http://download.oracle.com/javase/8/docs/api/" packagelistLoc="java-package-list"/>
       <doctitle><![CDATA[<h1>AREDIS - Redis Java Client</h1>]]></doctitle>
       <bottom><![CDATA[<i>Copyright &#169; 2013- Suresh Mahalingam. All Rights Reserved.</i>]]></bottom>
     </javadoc>
