@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Suresh Mahalingam.  All rights reserved.
+ * Copyright (C) 2013-2014 Suresh Mahalingam.  All rights reserved.
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -80,7 +80,7 @@ public class RedisCommandInfo {
 
     Object result;
 
-    ResultType [] mbResultTypes;
+    ResultTypeInfo [] mbResultTypes;
 
     CommandStatus runStatus;
 
@@ -103,7 +103,7 @@ public class RedisCommandInfo {
     // Collection used to aggregate results like Set
     Object aggregationResult;
 
-    void deserializeShardedCommandInfo() {
+    private void deserializeShardedCommandInfo() {
         int i;
         for(i = 0; i < splitCommands.length; i++) {
             splitCommands[i].deserialize();
@@ -111,7 +111,7 @@ public class RedisCommandInfo {
         command.shardedResultHandler.aggregateResults(this);
     }
 
-    void deserializeCommandInfo() {
+    private void deserializeCommandInfo() {
         int i;
         if(result != null && dataHandler != null) {
             byte rawData[] = null;
@@ -131,7 +131,12 @@ public class RedisCommandInfo {
                 Object mbArray[] = (Object []) result;
                 if(command != RedisCommand.EXEC) {
                     for(i = 0; i < mbArray.length; i++) {
-                        if(mbResultTypes[i] == ResultType.BULK && (rawData = (byte[]) mbArray[i]) != null) {
+                        ResultType nextResultType = mbResultTypes[i].getResultType();
+                        if (nextResultType == ResultType.MULTIBULK) {
+                            RedisCommandInfo nextMbResult = (RedisCommandInfo) mbArray[i];
+                            nextMbResult.deserialize();
+                            mbArray[i] = nextMbResult.result;
+                        } else if(nextResultType == ResultType.BULK && (rawData = (byte[]) mbArray[i]) != null) {
                             try {
                                 mbArray[i] = dataHandler.deserialize(metaData, rawData, 0, rawData.length, serverInfo);
                             } catch (Exception e) {
@@ -154,7 +159,7 @@ public class RedisCommandInfo {
         }
     }
 
-    void deserialize() {
+    private void deserialize() {
         if(!isDeserialized) {
             isDeserialized = true;
             if(splitCommands == null) {
@@ -230,8 +235,9 @@ public class RedisCommandInfo {
     /**
      * Gets the result. For resultTypes other than BULK and MULTIBULK the value returned is a String.
      * For resultType BULK the appropriate Data Handler is used to de-serialize the response. In case of the resultType
-     * MULTIBULK the return value is an Array of Objects. The DataHandler is used to de-serialize the individual
-     * responses in the MULTIBULK. In case of MULTIBULK response of an EXEC command the Result is an Array of
+     * MULTIBULK the return value is an Array of Objects which could have arrays in case of a nested MULTIBULK result
+     * as in the response of a SCAN command. The DataHandler is used to de-serialize individual bulk responses
+     * in a MULTIBULK response. In case of MULTIBULK response of an EXEC command the Result is an Array of
      * RedisCommandInfo and each of the elements of the Array has the response for the corresponding command in the
      * Redis Transaction.
      * @return Result Appropriate result which could be null in case of null MULTIBULK response or if getRunStatus
@@ -245,13 +251,30 @@ public class RedisCommandInfo {
     }
 
     /**
-     * Converts the result to an int
+     * In case the ResultType returned by getResultType is MULTIBULK this method returns the ResultTypes in
+     * the response. The response is an Array of ResultTypeInfo rather than ResultType because some of the
+     * ResultTypes may again be MULTIBULK as in the response of a SCAN command in which case the corresponding
+     * ResultTypeInfo.getMbResultTypes gets the ResultTypes of those sub-MULTIBULK responses.
+     *
+     * This info is usually not needed by the user of aredis since he already knows the MULTIBULK response for
+     * the command he/she has sent. However aredis also uses this info when de-serializing.
+     *
+     * Note that the return value is NULL for an EXEC command.
+     *
+     * @return An array identifying the individual ResultTypes if the ResultType is MULTIBULK, null otherwise
+     */
+    public ResultTypeInfo[] getMbResultTypes() {
+        return mbResultTypes;
+    }
+
+    /**
+     * Converts any result Object to an int
+     * @param res Result Object
      * @param def Default value to return in case the result is null or not an Integer
      * @return Result as int
      */
-    public int getIntResult(int def) {
+    public static int getIntResult(Object res, int def) {
         int intResult = def;
-        Object res = getResult();
         if(res != null) {
             try {
                 intResult = Integer.parseInt((String) res);
@@ -264,13 +287,22 @@ public class RedisCommandInfo {
     }
 
     /**
-     * Converts the result to a long
+     * Converts the result to an int
+     * @param def Default value to return in case the result is null or not an Integer
+     * @return Result as int
+     */
+    public int getIntResult(int def) {
+        return getIntResult(getResult(), def);
+    }
+
+    /**
+     * Converts any result Object to a long
+     * @param res Result Object
      * @param def Default value to return in case the result is null or not a Long
      * @return Result as long
      */
-    public long getLongResult(long def) {
+    public long getLongResult(Object res, long def) {
         long longResult = def;
-        Object res = getResult();
         if(res != null) {
             try {
                 longResult = Long.parseLong((String) res);
@@ -283,13 +315,22 @@ public class RedisCommandInfo {
     }
 
     /**
-     * Converts the result to a short value
+     * Converts the result to a long
+     * @param def Default value to return in case the result is null or not a Long
+     * @return Result as long
+     */
+    public long getLongResult(long def) {
+        return getLongResult(getResult(), def);
+    }
+
+    /**
+     * Converts any result Object to a short value
+     * @param res Result Object
      * @param def Default value to return in case the result is null or not a Short int
      * @return Result as a short value
      */
-    public short getShortResult(short def) {
+    public short getShortResult(Object res, short def) {
         short intResult = def;
-        Object res = getResult();
         if(res != null) {
             try {
                 intResult = Short.parseShort((String) res);
@@ -302,13 +343,22 @@ public class RedisCommandInfo {
     }
 
     /**
-     * Converts the result to a byte
+     * Converts the result to a short value
+     * @param def Default value to return in case the result is null or not a Short int
+     * @return Result as a short value
+     */
+    public short getShortResult(short def) {
+        return getShortResult(getResult(), def);
+    }
+
+    /**
+     * Converts any result Object to a byte
+     * @param res Result Object
      * @param def Default value to return in case the result is null or not a Byte
      * @return Result as a byte
      */
-    public byte getByteResult(byte def) {
+    public byte getByteResult(Object res, byte def) {
         byte byteResult = def;
-        Object res = getResult();
         if(res != null) {
             try {
                 byteResult = Byte.parseByte((String) res);
@@ -321,13 +371,22 @@ public class RedisCommandInfo {
     }
 
     /**
-     * Converts the result to a double value
+     * Converts the result to a byte
+     * @param def Default value to return in case the result is null or not a Byte
+     * @return Result as a byte
+     */
+    public byte getByteResult(byte def) {
+        return getByteResult(getResult(), def);
+    }
+
+    /**
+     * Converts any result Object to a double value
+     * @param res Result Object
      * @param def Default value to return in case the result is null or not a Double
      * @return Result as a double value
      */
-    public double getDoubleResult(double def) {
+    public double getDoubleResult(Object res, double def) {
         double doubleResult = def;
-        Object res = getResult();
         if(res != null) {
             try {
                 doubleResult = Double.parseDouble((String) res);
@@ -340,13 +399,22 @@ public class RedisCommandInfo {
     }
 
     /**
-     * Converts the result to a float
+     * Converts the result to a double value
+     * @param def Default value to return in case the result is null or not a Double
+     * @return Result as a double value
+     */
+    public double getDoubleResult(double def) {
+        return getDoubleResult(getResult(), def);
+    }
+
+    /**
+     * Converts any result Object to a float
+     * @param res Result Object
      * @param def Default value to return in case the result is null or not a Float
      * @return Result as a float
      */
-    public float getFloatResult(float def) {
+    public float getFloatResult(Object res, float def) {
         float floatResult = def;
-        Object res = getResult();
         if(res != null) {
             try {
                 floatResult = Float.parseFloat((String) res);
@@ -356,6 +424,15 @@ public class RedisCommandInfo {
             }
         }
         return floatResult;
+    }
+
+    /**
+     * Converts the result to a float
+     * @param def Default value to return in case the result is null or not a Float
+     * @return Result as a float
+     */
+    public float getFloatResult(float def) {
+        return getFloatResult(getResult(), def);
     }
 
     /**

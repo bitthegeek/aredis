@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Suresh Mahalingam.  All rights reserved.
+ * Copyright (C) 2013-2014 Suresh Mahalingam.  All rights reserved.
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -39,13 +39,13 @@ public enum RedisCommand {
     BGSAVE(""),
     BITCOUNT("kpp"),
     BITOP("pkk@k"),
+    BITPOS("kp@p"),
     BLPOP("kk@k", false, true), // Not Accurate since there should be a p at end
     BRPOP("kk@k", false, true), // Not Accurate since there should be a p at end
     BRPOPLPUSH("kkp", false, true),
-    CLIENT("pp"),
+    CLIENT("p@p"),
     CONFIG("p@p"),
     DBSIZE(""),
-    DEBUG("pk"),
     DECR("k"),
     DECRBY("kp"),
     DEL("k@k", false, false, IntegerShardedResultHandler.instance),
@@ -53,6 +53,7 @@ public enum RedisCommand {
     DUMP("k"),
     ECHO("p"),
     EVAL("pck@v"),
+    EVALCHECK("pck@v"),
     EVALSHA("pck@v"),
     /**
      * EVALCHECK is a pseudo command translating into an EVAL for the first call and then into an
@@ -60,7 +61,6 @@ public enum RedisCommand {
      * {@link Script} object. This command is useful only for scripts that are going to be run
      * multiple times which is normally the case.
      */
-    EVALCHECK("pck@v"),
     EXEC("", true, false),
     EXISTS("k"),
     EXPIRE("kp"),
@@ -81,6 +81,7 @@ public enum RedisCommand {
     HLEN("k"),
     HMGET("kp@p"),
     HMSET("kpv@pv"),
+    HSCAN("kp@p"),
     HSET("kpv"),
     HSETNX("kpv"),
     HVALS("k"),
@@ -110,11 +111,15 @@ public enum RedisCommand {
     PERSIST("k"),
     PEXPIRE("kp"),
     PEXPIREAT("kp"),
+    PFADD("kp@p"),
+    PFCOUNT("k@k"),
+    PFMERGE("kk@k"),
     PING(""),
     PSETEX("kpv"),
     PSUBSCRIBE("p@p", true, true),
     PTTL("k"),
     PUBLISH("pv"),
+    PUBSUB("p@p"),
     PUNSUBSCRIBE("@p", true, true),
     RANDOMKEY(""),
     RENAME("kk"),
@@ -126,8 +131,9 @@ public enum RedisCommand {
     RPUSHX("kv"),
     SADD("kp@p"),
     SAVE(""),
+    SCAN("p@p"),
     SCARD("k"),
-    SCRIPT("pp@p"),
+    SCRIPT("p@p"),
     SDIFF("k@k"),
     SDIFFSTORE("kk@k"),
     SELECT("p", true, false),
@@ -141,12 +147,14 @@ public enum RedisCommand {
     SINTERSTORE("kk@k"),
     SISMEMBER("kp"),
     SLAVEOF("pp"),
+    SLOWLOG("p@p"),
     SMEMBERS("k"),
     SMOVE("kkp"),
     SORT("k@p"),
     SPOP("k"),
     SRANDMEMBER("kp"),
     SREM("kp@p"),
+    SSCAN("kp@p"),
     STRLEN("k"),
     SUBSCRIBE("p@p", true, true),
     SUNION("k@k"),
@@ -162,15 +170,19 @@ public enum RedisCommand {
     ZCOUNT("kpp"),
     ZINCRBY("kpp"),
     ZINTERSTORE("kck@p"),
+    ZLEXCOUNT("kpp"),
     ZRANGE("kpp@p"),
+    ZRANGEBYLEX("kpp@p"),
     ZRANGEBYSCORE("kpp@p"),
     ZRANK("kp"),
     ZREM("kp@p"),
+    ZREMRANGEBYLEX("kpp"),
     ZREMRANGEBYRANK("kpp"),
     ZREMRANGEBYSCORE("kpp"),
     ZREVRANGE("kpp@p"),
     ZREVRANGEBYSCORE("kpp@p"),
     ZREVRANK("kp"),
+    ZSCAN("kp@p"),
     ZSCORE("kp"),
     ZUNIONSTORE("kck@p");
 
@@ -179,6 +191,12 @@ public enum RedisCommand {
         EVALSHA.scriptCommand = true;
         EVALCHECK.scriptCommand = true;
         SCRIPT.scriptCommand = true;
+        SDIFF.useKeyHandlerAsDefaultDataHandler = true;
+        SINTER.useKeyHandlerAsDefaultDataHandler = true;
+        SMEMBERS.useKeyHandlerAsDefaultDataHandler = true;
+        SPOP.useKeyHandlerAsDefaultDataHandler = true;
+        SRANDMEMBER.useKeyHandlerAsDefaultDataHandler = true;
+        SUNION.useKeyHandlerAsDefaultDataHandler = true;
     }
 
     static interface ShardedResultHandler {
@@ -331,6 +349,15 @@ public enum RedisCommand {
         if(numKeys == 1) {
             shardedResultHandler = DefaultShardedResultHandler.instance;
         }
+        if (argInfo.indexOf('k') < 0) {
+            useKeyHandlerAsDefaultDataHandler = true;
+        }
+        if (name().startsWith("Z")) {
+            useKeyHandlerAsDefaultDataHandler = true;
+        }
+        if (name().indexOf("SCAN") >= 0) {
+            useKeyHandlerAsDefaultDataHandler = true;
+        }
     }
 
     private RedisCommand(String argInfo, boolean pstateful, boolean pblocking) {
@@ -348,6 +375,8 @@ public enum RedisCommand {
 
     private int repeatableFromIndex;
 
+    private boolean useKeyHandlerAsDefaultDataHandler;
+
     ShardedResultHandler shardedResultHandler ;
 
     private boolean blocking;
@@ -362,7 +391,7 @@ public enum RedisCommand {
      * a count for which the next argType occurs for example in EVAL or ZINTERSTORE. In case the
      * same pattern repeats like in the command MSET it is captured by getRepeatable from index. These two capture the
      * syntax for most redis commands except for ones like BLPOP where we have a parameter after multiple keys
-     * and EVAL and EVALSHA where all of the values after the keys are asasumed to be values but some of them could be
+     * and EVAL and EVALSHA where all of the values after the keys are assumed to be values but some of them could be
      * parameters like numbers which should be Ok if you use a Data Handler like JavaHandler which serializes Strings
      * the natural way.
      * @return The arg types
@@ -383,6 +412,18 @@ public enum RedisCommand {
      */
     public int getRepeatableFromIndex() {
         return repeatableFromIndex;
+    }
+
+    /**
+     * Gets if Key Handler is to be used as the default data handler for this command. This is set for commands
+     * without any k in argTypes (i.e without any key arguments) and for *SCAN*, SET and SORTED SET commands
+     * (Starting with Z). This is mainly intended to force Bulk responses for these commands to be treated as
+     * Strings. This is anyways handled in the default data handler of AsyncRedisConnection unless it is changed.
+     * @return True if Key Handler is to be used as the default handler instead of the configured
+     * default handler
+     */
+    public boolean isUseKeyHandlerAsDefaultDataHandler() {
+        return useKeyHandlerAsDefaultDataHandler;
     }
 
     /**

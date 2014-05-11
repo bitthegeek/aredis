@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Suresh Mahalingam.  All rights reserved.
+ * Copyright (C) 2013-2014 Suresh Mahalingam.  All rights reserved.
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -71,7 +71,7 @@ public class SingleConsumerQueue<E> {
     /**
      * Default value of maxEnqueTimeMillis.
      */
-    public static final int DEFAULT_MAX_ENQUE_TIME_MILLIS = 5000;
+    public static final int DEFAULT_MAX_ENQUE_TIME_MILLIS = 10;
 
     private static final int FETCH_SIZE = 256;
 
@@ -133,21 +133,23 @@ public class SingleConsumerQueue<E> {
      * thread. Always returs false if acquireIfIdle has been passed as false.
      */
     public boolean add(E e, boolean acquireIfIdle) {
+        String msg = null;
         if(capacity == 0 || maxEnqueTimeMillis == 0) {
-            q.offer(e);
+            if (!q.offer(e)) {
+                msg = "Queue Full";
+            }
         }
         else {
-            String msg = null;
             try {
                 if(!q.offer(e, maxEnqueTimeMillis, TimeUnit.MILLISECONDS)) {
-                    msg = "Queue Full";
+                    msg = "Queue Full after " + maxEnqueTimeMillis + " ms";
                 }
             } catch (InterruptedException e1) {
                 msg = "add Operation Interrupted";
             }
-            if(msg != null) {
-                throw new IllegalStateException(msg);
-            }
+        }
+        if(msg != null) {
+            throw new IllegalStateException(msg);
         }
 
         return acquireIfIdle && acquireIdle();

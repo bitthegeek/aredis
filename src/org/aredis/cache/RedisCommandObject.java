@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Suresh Mahalingam.  All rights reserved.
+ * Copyright (C) 2013-2014 Suresh Mahalingam.  All rights reserved.
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -388,19 +388,21 @@ class RedisCommandObject implements AsyncHandler<RedisRawResponse> {
                         }
                     }
                     else {
-                        ResultType [] mbResultTypes = new ResultType[rawResults.length];
+                        ResultTypeInfo [] mbResultTypes = new ResultTypeInfo[rawResults.length];
                         redisCommandInfo.mbResultTypes = mbResultTypes;
                         // Regular Multibulk
                         for(i = 0; i < rawResults.length; i++) {
                             RedisRawResponse nextRawResult = rawResults[i];
                             if(nextRawResult != null) {
                                 ResultType nextResultType = nextRawResult.getResultType();
-                                mbResultTypes[i] = nextResultType;
-                                if(nextResultType == ResultType.BULK || nextResultType == ResultType.INT || nextResultType == ResultType.STRING) {
+                                if(nextResultType == ResultType.MULTIBULK) {
+                                    RedisCommandInfo subCommandInfo = new RedisCommandInfo(redisCommandInfo.dataHandler, null);
+                                    convertToCommandInfo(nextRawResult, subCommandInfo, null);
+                                    mbResultTypes[i] = new ResultTypeInfo(nextResultType, subCommandInfo.mbResultTypes);
+                                    results[i] = subCommandInfo;
+                                } else {
+                                    mbResultTypes[i] = new ResultTypeInfo(nextResultType, null);
                                     results[i] = nextRawResult.getResult();
-                                }
-                                else {
-                                    log.error("Unexpected Result Type: " + nextRawResult.getResultType() + " for command " + commandInfo.getCommand() + " result no: " + i);
                                 }
                             }
                             else {

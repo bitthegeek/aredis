@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Suresh Mahalingam.  All rights reserved.
+ * Copyright (C) 2013-2014 Suresh Mahalingam.  All rights reserved.
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -40,7 +40,7 @@ import org.aredis.net.ConnectionStatus;
 import org.aredis.util.concurrent.SingleConsumerQueue;
 
 /**
- * This is the base class used by {@link RedisSubscription}. RedisSubscription call the submitCommand method for its subscribe and unsubcribe callse.
+ * This is the base class used by {@link RedisSubscription}. RedisSubscription call the submitCommand method for its subscribe and unsubcribe calls.
  * This is an internal class.
  * @author suresh
  *

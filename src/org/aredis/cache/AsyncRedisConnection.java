@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Suresh Mahalingam.  All rights reserved.
+ * Copyright (C) 2013-2014 Suresh Mahalingam.  All rights reserved.
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -459,7 +459,7 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
             connectionType = ConnectionType.SHARED;
         }
         queuedMultiCommands = new LinkedList<RedisCommandInfo>();
-        requestQueue = new SingleConsumerQueue<RedisCommandList>(3000);
+        requestQueue = new SingleConsumerQueue<RedisCommandList>(5000);
         RequestQueueIdleListener idleListener = new RequestQueueIdleListener();
         requestQueue.setIdleListener(idleListener);
         responseQueue = new SingleConsumerQueue<RedisCommandList>();
@@ -756,7 +756,7 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
                     RedisCommandInfo commandInfo = commandInfos[i];
                     commandInfo.serverInfo = con;
                     if(commandInfo.dataHandler == null) {
-                        commandInfo.dataHandler = dataHandler;
+                        commandInfo.dataHandler = commandInfo.getCommand().isUseKeyHandlerAsDefaultDataHandler() ? KEY_HANDLER : dataHandler;
                     }
                 }
                 commandList.generateRequestData(con);
