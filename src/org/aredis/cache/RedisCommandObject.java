@@ -78,14 +78,18 @@ class RedisCommandObject implements AsyncHandler<RedisRawResponse> {
         if(!isData && param instanceof Number) {
             param = param.toString();
         }
-        String commandOrKeyOrParam = null;
+        byte [] commandOrKeyOrParamBytes = null;
         if(!isData || dataHandler == null) {
             dataHandler = AsyncRedisConnection.KEY_HANDLER;
-            commandOrKeyOrParam = (String) param;
+            if (param instanceof String) {
+                commandOrKeyOrParamBytes = ((String) param).getBytes(RedisConstants.UTF_8_CHARSET);
+            } else {
+                commandOrKeyOrParamBytes = (byte[]) param;
+            }
         }
         int i, len = filler.length;
-        if (commandOrKeyOrParam != null) {
-            i = commandOrKeyOrParam.length();
+        if (commandOrKeyOrParamBytes != null) {
+            i = commandOrKeyOrParamBytes.length;
             len = 1;
             while (i >= 10) {
                 len++;
@@ -98,8 +102,8 @@ class RedisCommandObject implements AsyncHandler<RedisRawResponse> {
         int curDataStart = bop.getCount();
         // Write the data after the filler
         try {
-            if (commandOrKeyOrParam != null) {
-                bop.write(commandOrKeyOrParam.getBytes(RedisConstants.UTF_8_CHARSET));
+            if (commandOrKeyOrParamBytes != null) {
+                bop.write(commandOrKeyOrParamBytes);
             } else {
                 dataHandler.serialize(param, commandInfo.metaData, bop, serverInfo);
             }
@@ -123,7 +127,7 @@ class RedisCommandObject implements AsyncHandler<RedisRawResponse> {
         int newDataStart = curDataStart;
         int diff = argSizeInfoLen - len;
         if(diff != 0) {
-            if (commandOrKeyOrParam != null) {
+            if (commandOrKeyOrParamBytes != null) {
                 log.error("Unexpected Param Len Descripency " + diff + " org = " + len);
             }
             while(diff > 0) {
