@@ -53,14 +53,14 @@ public enum RedisCommand {
     DUMP("k"),
     ECHO("p"),
     EVAL("pck@v"),
-    EVALCHECK("pck@v"),
-    EVALSHA("pck@v"),
     /**
      * EVALCHECK is a pseudo command translating into an EVAL for the first call and then into an
      * EVALSHA since the script would have been loaded. The first parameter should be a
      * {@link Script} object. This command is useful only for scripts that are going to be run
      * multiple times which is normally the case.
      */
+    EVALCHECK("pck@v"),
+    EVALSHA("pck@v"),
     EXEC("", true, false),
     EXISTS("k"),
     EXPIRE("kp"),
