@@ -54,10 +54,12 @@ public enum RedisCommand {
     ECHO("p"),
     EVAL("pck@v"),
     /**
-     * EVALCHECK is a pseudo command translating into an EVAL for the first call and then into an
-     * EVALSHA since the script would have been loaded. The first parameter should be a
-     * {@link Script} object. This command is useful only for scripts that are going to be run
-     * multiple times which is normally the case.
+     * EVALCHECK is a pseudo command that ensures that a Redis script is loaded before sending an EVALSHA
+     * command for the first time, using SCRIPT EXISTS and SCRIPT LOAD commands. Once loaded the script is
+     * flagged as loaded for the server and subsequent EVALCHECK calls to the same script are sent as EVALSHA
+     * commands without additional checks. The first parameter should be a {@link Script} object. Using this
+     * command saves the task of ensuring that a Script is present in the Redis server before calling an
+     * EVALSHA since it handles it internally.
      */
     EVALCHECK("pck@v"),
     EVALSHA("pck@v"),

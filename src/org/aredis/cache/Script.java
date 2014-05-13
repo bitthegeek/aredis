@@ -29,28 +29,42 @@ import org.aredis.util.SortedArray;
 import org.aredis.util.SortedArray.IndexUpdater;
 
 /**
+ * <p>
  * A simple immutable holder class to hold a Redis Lua Script and its sha1 digest.
  * A script Object is meant for scripts that are going to be used repeatedly which is normally
  * the case. Ideally scripts should be static variables or Singleton POJOs containing scripts if
  * loaded from a file on jvm start.
+ * </p>
  *
- * A script Object should be used with an {@link RedisCommand#EVALCHECK} pseudo command.
- * Before running the script the RedisConnection translates it into an EVAL command to run the
- * script on the server for the first time in the jvm and EVALSHA once the script completes
- * successfully and is marked as loaded against the particular server in the jvm. This eliminates
- * the need to ensure that a script is loaded for scripts that are going to be run multiple times.
+ * <p>
+ * A script Object should be used with a {@link RedisCommand#EVALCHECK} pseudo command.
+ * There is a flag for each Script maintained against each Redis Server. When an {@link AsyncRedisConnection}
+ * processes an EVALCHECK command for the first time when the flag for the script is not set against the
+ * server, it checks if the script is present on the Redis Server by using the SCRIPT EXISTS command on a
+ * separate Redis Connection. If SCRIPT EXISTS returns 0 then the script is loaded using the SCRIPT LOAD command.
+ * Then the flag for the script is set to indicate that the script is verified/loaded on the server after which
+ * an EVALSHA is sent with the script digest as the first parameter. Subsequent EVALCHECK calls for the same
+ * script on the same server will straight away translate to EVALSHA since the flag for the script is set
+ * against the server.
+ * </p>
  *
+ * <p>
  * A script Object can also be used instead of a String to specify the script for the
  * EVAL, EVALSHA, SCRIPT LOAD and SCRIPT EXISTS commands though you do not need these commands if you use the
  * EVALCHECK pseudo-command. The advantage of using a Script Object for these commands in case you
  * have a need to use them is that the script is marked as loaded for the server once the command
  * completes successfully which can be used by the EVALCHECK pseudo command.
+ * </p>
  *
+ * <p>
  * This class also includes Script constants containing Scripts used in aredis.
+ * </p>
  *
+ * <p>
  * Also note that EVALCHECK commands will start failing if a SCRIPT FLUSH command is executed on the
  * Redis server since the jvm does not know that scripts have been cleared. In such cases the script
- * all script statuses are cleared ond detecting the failure and the subsequent EVALCHECK commands will go through.
+ * all script statuses are cleared on detecting the failure and the subsequent EVALCHECK commands will go through.
+ * </p>
  *
  * @author Suresh
  *
