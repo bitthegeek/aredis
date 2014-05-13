@@ -31,14 +31,18 @@ import java.util.concurrent.TimeUnit;
 import org.aredis.cache.AsyncRedisConnection;
 
 /**
+ * <p>
  * This is a Wrapper over a {@link LinkedBlockingQueue} for use with a Single Consumer. This is used by the internal request and
  * response Q's of {@link AsyncRedisConnection}. The Consumer Thread can optionally quit on an empty Q in which case
  * the Q is marked as IDLE. The writer has an option to acquire the Q if it is IDLE when writing to the head of the Q.
  * If the Q is acquired then then the writer should initiate the listener.
+ * </p>
  *
+ * <p>
  * Note: Only One consumer should be receiving for a SingleConsumerQueue. This can be ensured by using add
  * method to acquire an idle consumer status and initiate the consumer and the remove method to set back the consumer
  * status to idle and quit the consumer thread in case of an empty Q.
+ * </p>
  *
  * @author Suresh
  *

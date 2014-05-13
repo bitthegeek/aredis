@@ -49,9 +49,13 @@ package org.aredis.cache;
 
 
 /**
-* Intents to provide hash for locating a server for a key.
+* <p>
+* Intends to provide hash for locating a server for a key.
+* </p>
 *
+* <p>
 * This has been borrowed from SpyMemcached.
+* </p>
 */
 public interface HashAlgorithm {
 

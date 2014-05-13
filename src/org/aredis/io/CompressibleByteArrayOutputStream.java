@@ -33,18 +33,22 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 /**
+ * <p>
  * An OutputStream that compresses the data once the size crosses a certain threshold. The setCompressionEnabled can be used
  * to turn off compressions for sections that are not part of the data and should not be compressed. When compressionEnabled
  * is flipped from false to true a new compression session is started and the data size is counted from that point and when
  * it exceeds the threshold the stream is reset to that point, a GZIPOutputStream is started and the data in session is
  * written to the GZIPOutputStream. compressionEnabled is false for commands and keys. It is turned on by the DataHandler
  * if it supports compression.
+ * </p>
  *
+ * <p>
  * When gzip compression is on the stream does not store the original data. To avoid compressing data that is already
  * compressed by gzip or other means a compression ratio check is made after every 1024 bytes. If the compression ratio
  * is above the abandonCompressionRatio then the compression is abandoned. This is done by closing the GZIPOutputStream
  * resetting the stream back to the start of the compression session, writing back the original data by uncompressing
  * the data written and continuing with future writes without compression.
+ * </p>
  * @author Suresh
  *
  */

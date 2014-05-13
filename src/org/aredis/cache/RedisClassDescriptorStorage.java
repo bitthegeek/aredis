@@ -31,15 +31,21 @@ import org.aredis.io.ClassDescriptors;
 import org.aredis.io.ClassDescriptorStorage;
 
 /**
+ * <p>
  * Implementation of ClassDescriptorStorage used by aredis that stores the ClassDescriptors on a redis server.
  * The data is serialized using java serialization and saved under the specified key. The default key is
  * JAVA_CL_DESCRIPTORS. The key is non-volatile.
+ * </p>
  *
+ * <p>
  * Note that aredis uses this class via {@link PerConnectionRedisClassDescriptorStorageFactory} which is the default
  * or {@link RedisClassDescriptorStorageFactory}.
+ * </p>
  *
+ * <p>
  * The updateClassDescriptors method uses WATCH-MULTI-EXEC commands along with checking of versionNo to avoid dirty
  * update.
+ * </p>
  *
  * @author Suresh
  *

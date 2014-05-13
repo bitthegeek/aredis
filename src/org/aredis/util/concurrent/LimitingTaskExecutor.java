@@ -35,23 +35,34 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
+ * <p>
  * This class is a utility class implementing ExecutorService which can sit on top of any ExecutorService
  * like ThreadPoolExecutor and limit the number of concurrent tasks submitted to it using a configured limit.
+ * </p>
  *
+ * <p>
  * It sort of provides a fixed size view of a global ThreadPool of higher capacity instead of creating a
  * new Fixed Size Thread Pool. It prevents eating into threads of the underlying Thread Pool when the
  * concurrent tasks exceed the specified limit by queuing the tasks.
+ * </p>
  *
+ * <p>
  * It will be useful for purposes like providing a small size ThreadPool for message subscription from a
  * global Thread Pool.
+ * </p>
  *
+ * <p>
  * Notes:
+ * </p>
  *
+ * <p>
  * Each task executed is run by an instance of {@link TaskWrapper}. The TaskWrapper which
  * is submitted to the underlying executorService re-uses the same run method for running
  * any tasks in LimitingTaskExecutors queue. So the competedTasks count of the underlying
  * executorService may not indicate the correct number of tasks processed from the LimitingTaskExecutor.
+ * </p>
  *
+ * <p>
  * When the underlying executorService rejects a task it is queued if there is at least one
  * outstanding task submitted successfully to de-queue it. Otherwise the task is rejected
  * with the LimitingExecutor's configured RejectedTaskHandler. Rejections by the underlying
@@ -61,6 +72,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * LimitingTaskExecutor cannot detect task rejection in that case. If you want to configure
  * a discard policy for the underlying executorService include a call to {@link TaskWrapper#rejectExecution}
  * as below:
+ * </p>
  *
  * <code>
             public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
@@ -70,14 +82,18 @@ import java.util.concurrent.locks.ReentrantLock;
             }
  * </code>
  *
+ * <p>
  * TaskRejection can also happen when submitting a task when the max allowed limit of tasks
  * are already submitted and the queue is full. The default queue is configured with a limit
  * of 150. A task is also rejected when the LimitingTaskExecutor or the underlying executorService
  * is shutdown. In all cases the Configured {@link RejectedTaskHandler}'s rejectedExecution method.
  * The default handler is ABORT_POLICY which throws a {@link RejectedExecutionException}.
+ * </p>
  *
+ * <p>
  * The number of outstanding tasks submitted to the underlying executorService is usually within the specified
  * limit though in some corner cases it could exceed the limit.
+ * </p>
  *
  * @author Suresh
  *

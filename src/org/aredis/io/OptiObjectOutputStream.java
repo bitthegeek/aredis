@@ -28,10 +28,13 @@ import java.io.ObjectStreamClass;
 import java.io.OutputStream;
 
 /**
+ * <p>
  * An ObjectOutputStream which optimizes storage by using a common ClassDescriptorStorage for maintaining the
  * Class Descriptors for the class used in serialization. An index pointing to the central array of descriptors
  * in the ClassDescriptorStorage is what is present in the stream.
+ * </p>
  *
+ * <p>
  * The ClassDescriptorStorage is required to be up and working whenever a new class is encountered that is not present
  * in the Local copy of the ClassDescriptors when writeObject method is called.
  * If syncToStore field is set to true the ClassDescriptor storage is automatically updated with the local
@@ -43,8 +46,11 @@ import java.io.OutputStream;
  * makes fewer interactions with the store. However the user has to update the store when new Classes are encountered
  * and the writeObject should be called again if the update fails. For retrying the writeObject the user has to either
  * use a local Byte Array stream or use the mark/reset feature on a BufferedOutputStream. aredis uses false for syncToStorage.
+ * </p>
  *
+ * <p>
  * This class is used by the OPTI_JAVA_HANDLER or aredis.
+ * </p>
  *
  * @author Suresh
  *

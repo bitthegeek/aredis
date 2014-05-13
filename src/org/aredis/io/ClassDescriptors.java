@@ -34,20 +34,30 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 /**
+ * <p>
  * Holds Class Descriptors in an internal array.
+ * </p>
  *
+ * <p>
  * This is an important class for OPTI_JAVA_HANDLER. However this and the other io classes are not tied
  * to any aredis specific stuff. Also this is not to be used directly but is used by ClassDescriptorStorage,
  * {@link OptiObjectInputStream} and {@link OptiObjectOutputStream}.
+ * </p>
  *
+ * <p>
  * This is for maintaining a central array of Class Descriptors used in Object Serialization and de-serialization.
  * The class descriptors in the serialized data is only an index into this array.
+ * </p>
  *
+ * <p>
  * The array is stored and retrieved by an implementation of {@link ClassDescriptorStorage}.
+ * </p>
  *
+ * <p>
  * Whenever ClassDescriptors is created or fetched from the store it is read only. It can be made writable
  * by cloning it if a new class descriptor is to be added. Then a save attempt is to be made via ClassDescriptorStorage
  * which should be based on optimistic locking (Dirty Check) using the versionNo. If the save fails a retry should be done.
+ * </p>
  * @author Suresh
  *
  */

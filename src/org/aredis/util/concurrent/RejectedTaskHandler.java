@@ -22,6 +22,11 @@
 
 package org.aredis.util.concurrent;
 
+/**
+ * Interface specifying the action to be taken when a task is rejected by a {@link LimitingTaskExecutor}.
+ * @author Suresh
+ *
+ */
 public interface RejectedTaskHandler {
 
     /**

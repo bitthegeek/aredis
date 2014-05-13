@@ -27,15 +27,30 @@ import java.util.Comparator;
 import org.aredis.util.SortedArray;
 import org.aredis.util.SortedArray.IndexUpdater;
 
+/**
+ * Compares two ServerInfo Objects by comparing their hosts followed by ports. It also maintains
+ * a {@link SortedArray} of unique ServerInfos using the comparator.
+ * @author Suresh
+ *
+ */
 public class ServerInfoComparator implements Comparator<ServerInfo> {
 
     private static final SortedArray<ServerInfo> serverInfosArray = new SortedArray<ServerInfo>();
 
+    /**
+     * Single instance of the ServerInfoComparator.
+     */
     public static final ServerInfoComparator INSTANCE = new ServerInfoComparator();
 
     private ServerInfoComparator() {
     }
 
+    /**
+     * Find a ServerInfo or creates it.
+     * @param serverInfo Server Info
+     * @param indexUpdater Index Updater to call in case a new entry is made
+     * @return Existing ServerInfo if found else the passed ServerInfo
+     */
     public static ServerInfo findItem(ServerInfo serverInfo, IndexUpdater indexUpdater) {
         return serverInfosArray.findItem(serverInfo, INSTANCE, indexUpdater);
     }

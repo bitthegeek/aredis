@@ -53,12 +53,16 @@ import java.util.zip.CRC32;
 import org.aredis.io.RedisConstants;
 
 /**
+* <p>
 * Known hashing algorithms for locating a server for a key. Note that all hash
 * algorithms return 64-bits of hash, but only the lower 32-bits are
 * significant. This allows a positive 32-bit number to be returned for all
 * cases.
+* </p>
 *
+* <p>
 * This has been borrowed from SpyMemcached.
+* </p>
 */
 public enum DefaultHashAlgorithm implements HashAlgorithm {
 

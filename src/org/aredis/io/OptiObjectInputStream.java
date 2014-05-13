@@ -28,15 +28,21 @@ import java.io.ObjectInputStream;
 import java.io.ObjectStreamClass;
 
 /**
+ * <p>
  * An ObjectInputStream which optimizes storage by using a common ClassDescriptorStorage for maintaining the
  * Class Descriptors for the class used in serialization. An index pointing to the central array of descriptors
  * in the ClassDescriptorStorage is what is present in the stream.
+ * </p>
  *
+ * <p>
  * The ClassDescriptorStorage is required to be up and working when used for the first time and whenever a new
  * ClassDescriptor index not present in the ClassDescriptors maintained by this class is encountered.
  * The Local copy of the ClassDescriptors are automatically refreshed from the store in that case.
+ * </p>
  *
+ * <p>
  * This class is used by the OPTI_JAVA_HANDLER or aredis.
+ * </p>
  *
  * @author Suresh
  *
