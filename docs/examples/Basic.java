@@ -28,6 +28,8 @@ public class Basic {
         // Future<RedisCommandInfo> future = aredis.submitCommand(RedisCommand.GET, keyBytes);
         Future<RedisCommandInfo> future1 = aredis.submitCommand(RedisCommand.GET, "java_date");
         try {
+            // Whenever possible fetch the results together after submitting the commands as it
+            // is done here. this increases the pipeline size resulting in better performance
             String val = (String) future.get().getResult();
             System.out.println("Got back val = " + val);
             Date currentDate = (Date) future1.get().getResult();
