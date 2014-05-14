@@ -1,3 +1,32 @@
+Released Version 1.1 on 14th May 2014
+=====================================
+
+Changes:
+
+Buffering GZIPInput/GZIPOutput Streams used for compression since it performs better.
+
+Added Scripting support.
+Introduced Script Object encapsulating a Redis Lua script and its SHA-1 digest.
+Introduced EVALCHECK pseudo command as a single command for calling a Redis Script.
+The EVALCHECK command calls SCRIPT EXISTS/LOAD on a separate connection the first time a script is
+sent to a Redis server to ensure that it is present on the server. The script is then marked in the
+jvm as loaded for the server before an EVALSHA command is sent. Subsequent EVALCHECK calls for the
+same script to the same server read the flag and send an EVALSHA command straight away without
+additional checks.
+
+Added LimitingTaskExecutor ExecutorService utility which can sit on top of any ExecutorService like
+ThreadPoolExecutor and limit the number of tasks submitted to a configured value. This will be
+useful to limit number of Threads consumed by executors for message subscription while at the same
+time sharing a global Thread Pool.
+
+Changed max Q size of the pipeline from 3000 to 5000 and the timeout from 5 seconds to 20 ms.
+
+Added new commands like SCAN, PFADD up to redis 2.8.9.
+Changed Response parsing to accommodate a complex MULTIBULK response like that in SCAN command.
+
+Fixed bug due to which Command sent to an AsyncRedisConnection created with an invalid host does not
+complete.
+
 Released Version 1.0 on 28th July 2013
 ======================================
 
