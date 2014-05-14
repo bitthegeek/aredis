@@ -33,7 +33,7 @@ import org.aredis.util.SortedArray.IndexUpdater;
  * A simple immutable holder class to hold a Redis Lua Script and its sha1 digest.
  * A script Object is meant for scripts that are going to be used repeatedly which is normally
  * the case. Ideally scripts should be static variables or Singleton POJOs containing scripts if
- * loaded from a file on jvm start.
+ * loaded from a file on jvm start. A Script object is created using the static getInstance method.
  * </p>
  *
  * <p>
@@ -86,6 +86,11 @@ public class Script implements Comparable<Script> {
 
     private int index;
 
+    /**
+     * This static method must be used to create a Script Object.
+     * @param s Redis script
+     * @return A script object containing the Redis script and its SHA-1 digest
+     */
     public static Script getInstance(String s) {
         final Script searchScr = new Script(s);
         Script scr = scriptsArray.findItem(searchScr, null, new IndexUpdater() {

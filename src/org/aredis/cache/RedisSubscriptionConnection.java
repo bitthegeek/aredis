@@ -40,7 +40,7 @@ import org.aredis.net.ConnectionStatus;
 import org.aredis.util.concurrent.SingleConsumerQueue;
 
 /**
- * This is the base class used by {@link RedisSubscription}. RedisSubscription call the submitCommand method for its subscribe and unsubcribe calls.
+ * This is the base class used by {@link RedisSubscription}. RedisSubscription calls the submitCommand method for its subscribe and unsubcribe calls.
  * This is an internal class.
  * @author suresh
  *

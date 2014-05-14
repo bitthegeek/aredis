@@ -29,6 +29,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
@@ -68,12 +69,13 @@ import java.util.concurrent.locks.ReentrantLock;
  * with the LimitingExecutor's configured RejectedTaskHandler. Rejections by the underlying
  * executorSerice are detected by handling the {@link RejectedExecutionException} in case
  * of the default configuration or by using a ThreadLocal in case of {@link java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy}.
- * Note that you should the {@link java.util.concurrent.ThreadPoolExecutor.DiscardPolicy} handler because
- * LimitingTaskExecutor cannot detect task rejection in that case. If you want to configure
- * a discard policy for the underlying executorService include a call to {@link TaskWrapper#rejectExecution}
- * as below:
+ * Note that you should not use the {@link java.util.concurrent.ThreadPoolExecutor.DiscardPolicy}
+ * handler because LimitingTaskExecutor cannot detect task rejection in that case. If you want to configure
+ * a discard policy for the underlying executorService configure your own {@link RejectedExecutionHandler}
+ * and include a call to {@link TaskWrapper#rejectExecution} in it as below:
  * </p>
  *
+ * <pre>
  * <code>
             public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
                 if (r instanceof TaskWrapper) {
@@ -81,12 +83,13 @@ import java.util.concurrent.locks.ReentrantLock;
                 }
             }
  * </code>
+ * </pre>
  *
  * <p>
  * TaskRejection can also happen when submitting a task when the max allowed limit of tasks
  * are already submitted and the queue is full. The default queue is configured with a limit
  * of 150. A task is also rejected when the LimitingTaskExecutor or the underlying executorService
- * is shutdown. In all cases the Configured {@link RejectedTaskHandler}'s rejectedExecution method.
+ * is shutdown. In all cases the Configured {@link RejectedTaskHandler}'s rejectedExecution method is called.
  * The default handler is ABORT_POLICY which throws a {@link RejectedExecutionException}.
  * </p>
  *
