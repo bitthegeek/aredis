@@ -56,7 +56,40 @@
       <td width="80%" valign="top" align="left" id="mainBody">
         <table border="0" cellspacing="0" cellpadding="2" width="100%">
           <tr>
+            <td><a href="#getting_started">Getting Started</a></td>
+          </tr>
+          <tr>
+            <td><a href="#api_overview">API Overview</a></td>
+          </tr>
+          <tr>
+            <td><a href="#imp_cl_n_info">Important Classes and Info</a></td>
+          </tr>
+          <tr>
+            <td><a href="#data_handlers">Data Handlers</a></td>
+          </tr>
+          <tr>
+            <td><a href="#con_n_threads">Connections and Threads</a></td>
+          </tr>
+          <tr>
+            <td><a href="#lte">LimitingTaskExecutor</a></td>
+          </tr>
+          <tr>
+            <td><a href="#scripting_support">Redis Scripting Support</a></td>
+          </tr>
+          <tr>
+            <td><a href="#distributed_lock">Distributed Lock</a></td>
+          </tr>
+          <tr>
+            <td><a href="#more_examples">More Examples</a></td>
+          </tr>
+          <tr>
+            <td><br/></td>
+          </tr>
+        </table>
+        <table border="0" cellspacing="0" cellpadding="2" width="100%">
+          <tr>
             <td bgcolor="#6464FA">
+              <a name="getting_started"></a>
               <font color="#ffffff" face="arial,helvetica,sanserif">
                 <strong>Getting Started</strong>
               </font>
@@ -78,7 +111,7 @@
         AsyncRedisClient aredis = f.getClient("localhost");
         // Use sendCommand instead of submitCommand when you are not interested in the Return value
         aredis.sendCommand(RedisCommand.SETEX, "hello", "300", "world");
-        Future<RedisCommandInfo> future = aredis.submitCommand(RedisCommand.GET, "hello");
+        Future&lt;RedisCommandInfo&gt; future = aredis.submitCommand(RedisCommand.GET, "hello");
         try {
             String val = (String) future.get().getResult();
             System.out.println("Got back val = " + val);
@@ -99,6 +132,61 @@
         <table border="0" cellspacing="0" cellpadding="2" width="100%">
           <tr>
             <td bgcolor="#6464FA">
+              <a name="api_overview"></a>
+              <font color="#ffffff" face="arial,helvetica,sanserif">
+                <strong>API Overview</strong>
+              </font>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <blockquote>
+                <p>
+                  As you might have noticed in the Getting Started example, the API of
+                  <a href="../javadocs/org/aredis/cache/AsyncRedisClient.html">AsyncRedisClient</a> is designed as generic methods to submit any
+                  Redis command and not as a set of Type Safe methods, one for each command or class of commands. This is to accommodate a Future
+                  based synchronous API and Async API. So it helps to refer to the <a href="http://redis.io/commands/">Redis Command Page</a> when
+                  coding. Adding a new Redis Command introduced in a Redis Server release can be done by simply adding to the
+                  <a href="../javadocs/org/aredis/cache/RedisCommand.html">RedisCommand</a> enum.
+                </p>
+                <p>
+                  The API takes a RedisCommand enum value identifying the command followed by a variable argument list for the command parameters.
+                  Each command has an argInfo String given in the Enum constructor which identifies each of the command parameters, whether it is a,
+                  key, qualifier or value. Using the argInfo for the command the API treats each parameter as a key, parameter (qualifier) or value.
+                  Keys and qualifiers are usually Strings in the vararg list at are sent to redis after encoding them in UTF-8. The keys can be byte
+                  arrays if they cannot be represented as UTF-8. The values can be Strings or any other Serializable java Objects and are converted to
+                  bytes using a Data Handler. The default data handler stores Strings smaller than 1024 bytes as it is using UTF-8 encoding which
+                  makes String values compatible with other language clients. The default data handler compresses Strings or serialized values larger
+                  than 1 Kb using gzip.
+                </p>
+                <p>
+                  The result of running the command is contained in a <a href="../javadocs/org/aredis/cache/RedisCommandInfo.html">RedisCommandInfo</a>
+                  Object which is returned by the API either as a Future<RedisCommandInfo> return value or as a parameter in the supplied callback in
+                  Async mode. The <a href="../javadocs/org/aredis/cache/RedisCommandInfo.html#getResult()">getResult</a> method of RedisCommandInfo
+                  returns the result which is of type Object. The Object returned is a String for INT, String and Redis Error responses. For bulk
+                  responses the data handler is used to convert the response to a String or the Object which was stored. For Commands like
+                  <a href="http://redis.io/commands/INCR">INCR</a> where you know that the response is an int or double you can use methods
+                  <a href="../javadocs/org/aredis/cache/RedisCommandInfo.html#getIntResult(int)">getIntResult</a> or
+                  <a href="../javadocs/org/aredis/cache/RedisCommandInfo.html#getDoubleResult(double)">getDoubleResult</a> of RedisCommandInfo to convert
+                  the String result to your data type. For multi-bulk (Array) response the return value is an array of Objects each of which contains
+                  the individual result in the multi-bulk response. The result is null for a null bulk or multi-bulk response and also in case of an
+                  error executing the command such as a network error in which case the getRunStatus method returns the appropriate status other than
+                  SUCCESS.
+                </p>
+                <p>
+                  For more details about the API please see the section on important classes, examples and also the <a href="../javadocs/">Javadocs</a>.
+                </p>
+              </blockquote>
+            </td>
+          </tr>
+          <tr>
+            <td><br/></td>
+          </tr>
+        </table>
+        <table border="0" cellspacing="0" cellpadding="2" width="100%">
+          <tr>
+            <td bgcolor="#6464FA">
+              <a name="imp_cl_n_info"></a>
               <font color="#ffffff" face="arial,helvetica,sanserif">
                 <strong>Important Classes and Info</strong>
               </font>
@@ -108,18 +196,13 @@
             <td>
               <blockquote>
                 <p>
-                  <a href="../javadocs/org/aredis/cache/AsyncRedisClient.html?is-external=true">AsyncRedisClient</a> is a common client interface. It has two implementations <a href="../javadocs/org/aredis/cache/AsyncRedisConnection.html?is-external=true">AsyncRedisConnection</a>
-                  and <a href="../javadocs/org/aredis/cache/ShardedAsyncRedisClient.html?is-external=true">ShardedAsyncRedisClient</a>.
-                </p>
-                <p>
-                  As you might have noticed in the Getting Started example, the API of AsyncRedisClient is designed as a generic interface
-                  to submit any Redis command and not as a set of Type Safe methods, one for each command or class of commands. This is partly to
-                  accommodate an Async API. So it helps to refer to the <a href="http://redis.io/commands/">Redis Command Page</a> when coding.
+                  <a href="../javadocs/org/aredis/cache/AsyncRedisClient.html">AsyncRedisClient</a> is a common client interface. It has two implementations <a href="../javadocs/org/aredis/cache/AsyncRedisConnection.html">AsyncRedisConnection</a>
+                  and <a href="../javadocs/org/aredis/cache/ShardedAsyncRedisClient.html">ShardedAsyncRedisClient</a>.
                 </p>
                 <p>
                   AsyncRedisConnection is the central class providing the connection to the Redis Server via an Asynchronous socket API. The
-                  Asynchronous connection is abstracted by the interface <a href="../javadocs/org/aredis/net/AsyncSocketTransport.html?is-external=true">AsyncSocketTransport</a>.
-                  Currently <a href="../javadocs/org/aredis/net/AsyncJavaSocketTransport.html?is-external=true">AsyncJavaSocketTransport</a> using the Java 7 NIO based <a href="http://docs.oracle.com/javase/7/docs/api/java/nio/channels/AsynchronousSocketChannel.html">Asynchronous channel</a> is the only
+                  Asynchronous connection is abstracted by the interface <a href="../javadocs/org/aredis/net/AsyncSocketTransport.html">AsyncSocketTransport</a>.
+                  Currently <a href="../javadocs/org/aredis/net/AsyncJavaSocketTransport.html">AsyncJavaSocketTransport</a> using the Java 7 NIO based <a href="http://docs.oracle.com/javase/8/docs/api/java/nio/channels/AsynchronousSocketChannel.html">Asynchronous channel</a> is the only
                   implementation of the interface which is why you need Java 7.
                 </p>
                 <p>
@@ -131,12 +214,14 @@
                   part of the API.
                 </p>
                 <p>
-                  <a href="../javadocs/org/aredis/cache/RedisCommandInfo.html?is-external=true">RedisCommandInfo</a> is the DTO (Data Transfer Object) for a RedisCommand. It is a holder for the RedisCommand and its
-                  parameters, the DataHandler to be used for serializing and de-serializing data and the Result. The
-                  <a href="../javadocs/org/aredis/cache/RedisCommandInfo.html#getResult()">getResult</a> method returns a String
-                  in case of a String result or Redis error. It returns the de-serialized result in case of a bulk response and an array of
+                  <a href="../javadocs/org/aredis/cache/RedisCommandInfo.html">RedisCommandInfo</a> is the DTO (Data Transfer Object) for a
+                  RedisCommand. It is a holder for the RedisCommand and its parameters, the DataHandler to be used for serializing and de-serializing
+                  data and the Result. The <a href="../javadocs/org/aredis/cache/RedisCommandInfo.html#getResult()">getResult</a> method returns a
+                  String in case of a String result or Redis error. It returns the de-serialized result in case of a bulk response and an array of
                   de-serialized Objects in case of a multi-bulk response. The response is an array of RedisCommandInfo for each command in the
-                  transaction in case of an EXEC command.
+                  transaction in case of an EXEC command. getResult returns null in case of a null bulk or multi-bulk response and also in case of an
+                  error executing the command such as a network error in which case the getRunStatus method returns the appropriate status other than
+                  SUCCESS. null is also returned in case EXEC fails because of a change in a watched key.
                 </p>
                 <p>
                   There are different variations of the submitCommand method in AsyncRedisClient based on the following parameters:
@@ -155,7 +240,7 @@
                       commands not requiring a WATCH on one or more keys.
                     </li>
                     <li>
-                      <b>Without a completionHandler:</b> These commands return a <a href="http://docs.oracle.com/javase/7/docs/api/java/util/concurrent/Future.html">Future</a> Object on which a get method can be called to get the RedisCommandInfo
+                      <b>Without a completionHandler:</b> These commands return a <a href="http://docs.oracle.com/javase/8/docs/api/java/util/concurrent/Future.html">Future</a> Object on which a get method can be called to get the RedisCommandInfo
                       or RedisCommandInfo[] array containing the results.
                     </li>
                     <li>
@@ -184,15 +269,15 @@
                 <p>The de-serialization happens on the first call to getResult on the returned CommandInfo after which the de-serialized result is
                 saved and returned on subsequent calls.</p>
                 <p>
-                  <a href="../javadocs/org/aredis/util/pool/AsyncObjectPool.html?is-external=true">AsyncObjectPool</a> is a fixed size Object pool with Async
+                  <a href="../javadocs/org/aredis/util/pool/AsyncObjectPool.html">AsyncObjectPool</a> is a fixed size Object pool with Async
                   borrow functionality used by aredis to provide a connection pool for Redis Transactions using WATCH, MULTI and EXEC commands.
                 </p>
                 <p>
-                  <a href="../javadocs/org/aredis/messaging/RedisSubscription.html?is-external=true">RedisSubscription</a> provides an API for subscribing to channels
+                  <a href="../javadocs/org/aredis/messaging/RedisSubscription.html">RedisSubscription</a> provides an API for subscribing to channels
                   using redis's SUBSCRIBE or PSUBSCRIBE commands.
                 </p>
                 <p>
-                  <a href="../javadocs/org/aredis/cache/AsyncRedisFactory.html?is-external=true">AsyncRedisFactory</a> is a factory class for getting one of the
+                  <a href="../javadocs/org/aredis/cache/AsyncRedisFactory.html">AsyncRedisFactory</a> is a factory class for getting one of the
                   above services for a given redis server. It returns the same Object for the same connection and is the preferred way of using these
                   services. The <a href="../javadocs/org/aredis/cache/AsyncRedisFactory.html#getClient(java.lang.String)">getClient</a> method
                   returns an AsyncRedisClient for a single or Multiple Servers. The implementation of AsyncRedisClient returned is an instance
@@ -202,6 +287,15 @@
                   method returns an instance of AsyncObjectPool<AsyncRedisConnection> and the
                   <a href="../javadocs/org/aredis/cache/AsyncRedisFactory.html#getSubscription(org.aredis.cache.RedisServerInfo)">getSubscription</a>
                   method returns an instance of RedisSubscription.
+                </p>
+                <p>
+                  <a href="../javadocs/org/aredis/cache/Script.html">Script</a> is an immutable Object holding a Redis Lua script and its digest. It
+                  should be used for the <a href="../javadocs/org/aredis/cache/RedisCommand.html#EVALCHECK">EVALCHECK</a> command and is recommended
+                  as a parameter for other script commands like EVALSHA though you won't usually need to use them if you use the EVALCHECK pseudo
+                  command. A script object is created using the
+                  <a href="../javadocs/org/aredis/cache/Script.html#getInstance(java.lang.String)">getInstance</a> method which returns the same
+                  script object for identical scripts. Each script is also assigned a unique index starting with 0 upon creation. The index is used
+                  internally to maintain the status flags for each Redis Server to indicate if the script has been verified on that server.
                 </p>
               </blockquote>
             </td>
@@ -213,6 +307,7 @@
         <table border="0" cellspacing="0" cellpadding="2" width="100%">
           <tr>
             <td bgcolor="#6464FA">
+              <a name="data_handlers"></a>
               <font color="#ffffff" face="arial,helvetica,sanserif">
                 <strong>Data Handlers</strong>
               </font>
@@ -222,12 +317,12 @@
             <td>
               <blockquote>
                 <p>
-                  A <a href="../javadocs/org/aredis/cache/DataHandler.html?is-external=true">DataHandler</a> specifies the serialization and
+                  A <a href="../javadocs/org/aredis/cache/DataHandler.html">DataHandler</a> specifies the serialization and
                   de-serialization of java Objects when storing and retrieving them.
                 </p>
                 <p>
                   The default handler is <a href="../javadocs/org/aredis/cache/AsyncRedisConnection.html#OPTI_JAVA_HANDLER">OPTI_JAVA_HANDLER</a>
-                  which is a <a href="../javadocs/org/aredis/cache/JavaHandler.html?is-external=true">JavaHandler</a> created by passing
+                  which is a <a href="../javadocs/org/aredis/cache/JavaHandler.html">JavaHandler</a> created by passing
                   optimizeObjectStorage as true.
                 </p>
                 <p>
@@ -236,18 +331,18 @@
                   If a GZIP header is found it decompresses the data and interprets it as a String if it does not begin with an aredis marker header.
                   In the unlikely case when the encoded String begins with an aredis Marker or GZIP header they are escaped with an escape marker
                   which is discarded during de-serialization. Instances of
-                  <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/Number.html">Number</a> like
-                  <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/Integer.html">Integer</a>,
-                  <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/Long.html">Long</a> and
-                  <a href="http://docs.oracle.com/javase/7/docs/api/java/lang/Double.html">Double</a>
+                  <a href="http://docs.oracle.com/javase/8/docs/api/java/lang/Number.html">Number</a> like
+                  <a href="http://docs.oracle.com/javase/8/docs/api/java/lang/Integer.html">Integer</a>,
+                  <a href="http://docs.oracle.com/javase/8/docs/api/java/lang/Long.html">Long</a> and
+                  <a href="http://docs.oracle.com/javase/8/docs/api/java/lang/Double.html">Double</a>
                   are serialized and de-serialized as their String values. Other Java Objects are stored using Java Serialization and prefixed by an
                   aredis Marker sequence to indicate if it is an optimized storage or regular serialization. When optimizeObjectStorage is true then
                   The Class Descriptors for Classes is stored in a common key JAVA_CL_DESCRIPTORS as an array and what is written or read from the
                   serialized data is only an index in the array. This saves the repetition of Class Descriptors data across keys. This is accomplished
                   by overriding the
-                  <a href="http://docs.oracle.com/javase/7/docs/api/java/io/ObjectOutputStream.html#writeClassDescriptor(java.io.ObjectStreamClass)">ObjectOutputStream.writeClassDescriptor</a>
+                  <a href="http://docs.oracle.com/javase/8/docs/api/java/io/ObjectOutputStream.html#writeClassDescriptor(java.io.ObjectStreamClass)">ObjectOutputStream.writeClassDescriptor</a>
                   and
-                  <a href="http://docs.oracle.com/javase/7/docs/api/java/io/ObjectInputStream.html#readClassDescriptor()">ObjectInputStream.readClassDescriptor</a>
+                  <a href="http://docs.oracle.com/javase/8/docs/api/java/io/ObjectInputStream.html#readClassDescriptor()">ObjectInputStream.readClassDescriptor</a>
                   Java APIs. The serialized data is Gzipped if it crosses the configured compression threshold which is defaulted at 1024.
                 </p>
                 <p>
@@ -255,8 +350,8 @@
                   is a JavaHandler with optimizeObjectStorage as false.
                 </p>
                 <p>
-                  Other DataHandlers are <a href="../javadocs/org/aredis/cache/StringHandler.html?is-external=true">StringHandler</a> and
-                  <a href="../javadocs/org/aredis/cache/BinaryHandler.html?is-external=true">BinaryHandler</a>.
+                  Other DataHandlers are <a href="../javadocs/org/aredis/cache/StringHandler.html">StringHandler</a> and
+                  <a href="../javadocs/org/aredis/cache/BinaryHandler.html">BinaryHandler</a>.
                 </p>
                 <p>
                   You can change your default DataHandler by configuring your AsyncRedisFactory or by setting
@@ -277,6 +372,7 @@
         <table border="0" cellspacing="0" cellpadding="2" width="100%">
           <tr>
             <td bgcolor="#6464FA">
+              <a name="con_n_threads"></a>
               <font color="#ffffff" face="arial,helvetica,sanserif">
                 <strong>Connections and Threads</strong>
               </font>
@@ -336,6 +432,99 @@
         <table border="0" cellspacing="0" cellpadding="2" width="100%">
           <tr>
             <td bgcolor="#6464FA">
+              <a name="scripting_support"></a>
+              <a name="lte"></a>
+              <font color="#ffffff" face="arial,helvetica,sanserif">
+                <strong>LimitingTaskExecutor</strong>
+              </font>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <blockquote>
+                <p>
+                <a href="../javadocs/org/aredis/util/concurrent/LimitingTaskExecutor.html">LimitingTaskExecutor</a> is generic utility that provides a
+                fixed size executor by wrapping a
+                <a href="http://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ThreadPoolExecutor.html">ThreadPoolExecutor</a> and limiting
+                the number of pending tasks submitted to it thus re-using the underlying executor.
+                For aredis it is useful in creating an Executor of smaller size for a Redis message subscription from a global thread pool.  The
+                LimitingTaskExecutor can be specified for all subscriptions by passing it to
+                <a href="../javadocs/org/aredis/cache/AsyncRedisFactory.html#getSubscription(org.aredis.cache.RedisServerInfo,%20java.util.concurrent.Executor)">AsyncRedisFactory.getSubscription()</a>
+                or for a particular subscription by passing it to <a href="../javadocs/org/aredis/cache/SubscriptionInfo.html">SubscriptionInfo</a>.
+                See the test directory for code examples using LimitingTaskExecutor.
+                </p>
+              </blockquote>
+            </td>
+          </tr>
+          <tr>
+            <td><br/></td>
+          </tr>
+        </table>
+        <table border="0" cellspacing="0" cellpadding="2" width="100%">
+          <tr>
+            <td bgcolor="#6464FA">
+              <a name="scripting_support"></a>
+              <font color="#ffffff" face="arial,helvetica,sanserif">
+                <strong>Redis Scripting Support</strong>
+              </font>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <blockquote>
+                <p>
+                  Redis provides two commands <a href="http://redis.io/commands/EVAL">EVAL</a> and <a href="http://redis.io/commands/EVALSHA">EVALSHA</a> for running Lua scripts on the server.
+                  While EVALSHA is more efficient it requires EVAL or <a href="http://redis.io/commands/script-load">SCRIPT LOAD</a> to be called for the script before it can be used.
+                </p>
+                <p>
+                  aredis provides a single pseudo command <a href="../javadocs/org/aredis/cache/RedisCommand.html#EVALCHECK">EVALCHECK</a> that
+                  translates into an EVALSHA command after ensuring that the script is present on the server using the
+                  <a href="http://redis.io/commands/script-exists">SCRIPT EXISTS</a> command and
+                  <a href="http://redis.io/commands/script-load">SCRIPT LOAD</a> command to load the script if SCRIPT EXISTS returns 0. This is done
+                  only for the first time the script is run after which a flag is set in the jvm for the Redis Server against the Script to indicate
+                  that it is verified.
+                </p>
+                <p>
+                  Subsequent EVALCHECK calls to the same script on the same Redis server translate into EVALSHA straight away since the flag for the
+                  server against the script will be set.
+                </p>
+              </blockquote>
+            </td>
+          </tr>
+          <tr>
+            <td><br/></td>
+          </tr>
+        </table>
+        <table border="0" cellspacing="0" cellpadding="2" width="100%">
+          <tr>
+            <td bgcolor="#6464FA">
+              <a name="distributed_lock"></a>
+              <font color="#ffffff" face="arial,helvetica,sanserif">
+                <strong>Distributed Lock</strong>
+              </font>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <blockquote>
+                <p>
+                  The Redis script defined in <a href="../javadocs/org/aredis/cache/Script.html#ADD_SCRIPT">Script.ADD_SCRIPT</a>
+                  stores a value against a key with an expiry time if the key does not exist on the server. This script also provides a convenient way
+                  to acquire a lock against a key with an expiry time by simply trying to set a value against the key with the required expiry time
+                  and checking if the script returns 1 which means that the lock is acquired. See the
+                  <a href="examples/LockExample.java" target="aredis_example">Lock Example</a> program for a code example.
+                </p>
+              </blockquote>
+            </td>
+          </tr>
+          <tr>
+            <td><br/></td>
+          </tr>
+        </table>
+        <table border="0" cellspacing="0" cellpadding="2" width="100%">
+          <tr>
+            <td bgcolor="#6464FA">
+              <a name="more_examples"></a>
               <font color="#ffffff" face="arial,helvetica,sanserif">
                 <strong>More Examples</strong>
               </font>
@@ -350,6 +539,8 @@
                 <li><a href="examples/ShardingExample.java" target="aredis_example">Sharding</a></li>
                 <li><a href="examples/PubSub.java" target="aredis_example">Publish Subscribe</a></li>
                 <li><a href="examples/SwitchDB.java" target="aredis_example">Switch between DBs</a></li>
+                <li><a href="examples/ScriptExample.java" target="aredis_example">Script Example</a></li>
+                <li><a href="examples/LockExample.java" target="aredis_example">Lock Example</a></li>
               </ul>
             </td>
           </tr>
@@ -368,12 +559,14 @@
           <tr>
             <td>
               <blockquote>
+                  <p>
                   AREDIS allows configuration of most parameters. You can configure AsyncRedisFactory to change your default handler and connection
                   pool size. You can also configure OPTI_JAVA_HANDLER to use a common Redis Server for storing class descriptors instead of the
                   connection's server by using RedisClassDescriptorStorageFactory instead of the default
                   PerConnectionRedisClassDescriptorStorageFactory. Please refer to the <a href= ../javadocs>javadocs</a> for more info. You can check
                   the test directory for a custom data handler for mapping objects to json format using
                   <a href="http://wiki.fasterxml.com/JacksonHome">jackson API</a>.
+                  </p>
               </blockquote>
             </td>
           </tr>
@@ -394,7 +587,7 @@
 <td colspan="2">
 <div align="center">
 <font color="#525D76" size="-1"><em>
-        Copyright &copy; 2013, Suresh Mahalingam
+        Copyright &copy; 2013-2014, Suresh Mahalingam
         </em></font>
 </div>
 </td>
