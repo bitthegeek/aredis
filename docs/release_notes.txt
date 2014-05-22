@@ -1,3 +1,11 @@
+Released Version 1.2 on 22nd May 2014
+=====================================
+
+Change:
+
+Deprecated Script.ADD_SCRIPT and removed it from documentation since the options introduced
+in Redis SET command since version 2.6.12 can achieve the same.
+
 Released Version 1.1 on 14th May 2014
 =====================================
 
