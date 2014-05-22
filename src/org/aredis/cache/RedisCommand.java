@@ -139,7 +139,7 @@ public enum RedisCommand {
     SDIFF("k@k"),
     SDIFFSTORE("kk@k"),
     SELECT("p", true, false),
-    SET("kv"),
+    SET("kv@p"),
     SETBIT("kpp"),
     SETEX("kpv"),
     SETNX("kv"),

@@ -77,9 +77,6 @@
             <td><a href="#scripting_support">Redis Scripting Support</a></td>
           </tr>
           <tr>
-            <td><a href="#distributed_lock">Distributed Lock</a></td>
-          </tr>
-          <tr>
             <td><a href="#more_examples">More Examples</a></td>
           </tr>
           <tr>
@@ -487,32 +484,6 @@
                 <p>
                   Subsequent EVALCHECK calls to the same script on the same Redis server translate into EVALSHA straight away since the flag for the
                   server against the script will be set.
-                </p>
-              </blockquote>
-            </td>
-          </tr>
-          <tr>
-            <td><br/></td>
-          </tr>
-        </table>
-        <table border="0" cellspacing="0" cellpadding="2" width="100%">
-          <tr>
-            <td bgcolor="#6464FA">
-              <a name="distributed_lock"></a>
-              <font color="#ffffff" face="arial,helvetica,sanserif">
-                <strong>Distributed Lock</strong>
-              </font>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <blockquote>
-                <p>
-                  The Redis script defined in <a href="../javadocs/org/aredis/cache/Script.html#ADD_SCRIPT">Script.ADD_SCRIPT</a>
-                  stores a value against a key with an expiry time if the key does not exist on the server. This script also provides a convenient way
-                  to acquire a lock against a key with an expiry time by simply trying to set a value against the key with the required expiry time
-                  and checking if the script returns 1 which means that the lock is acquired. See the
-                  <a href="examples/LockExample.java" target="aredis_example">Lock Example</a> program for a code example.
                 </p>
               </blockquote>
             </td>

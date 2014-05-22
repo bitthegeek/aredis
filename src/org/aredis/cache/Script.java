@@ -77,6 +77,8 @@ public class Script implements Comparable<Script> {
      * Though Redis provides a SETNX to atomically add a key if it does not exist, it does not take an expiry time. This Redis Lua script provides an equivalent of memcached add command.
      * It takes a key, an expiry time and a value and atomically sets it with the expiry time if it does not exist. This is used for the lock functionality as well to acquire a
      * distributed lock on a cache server with an expiry time. The lock is considered acquired if the script returns 1.
+     *
+     * @deprecated Since version 2.6.12 Redis has an enhanced SET command which has an NX and expiry option. So this script is not required.
      */
     public static final Script ADD_SCRIPT = Script.getInstance("local e = 1 - redis.call('exists',KEYS[1])\nif e == 1 then\n    redis.call('setex',KEYS[1],ARGV[1],ARGV[2])\nend\nreturn e");
 

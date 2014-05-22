@@ -21,6 +21,7 @@ public class ScriptExample {
         String result = (String) aredis.submitCommand(RedisCommand.EVALCHECK, SIMPLE_SCRIPT, "0").get().getResult();
         System.out.println("Result of SIMPLE_SCRIPT: " + result);
         String key = "hello";
+        // Script.ADD_SCRIPT is deprecated. It is used below only to show the usage of EVALCHECK
         System.out.println("SHA1 = " + Script.ADD_SCRIPT.getSha1sum());
         // The ADD_SCRIPT Lua Script is similar to the SETNX command with an expiry time specified. It will
         // return 1 on the first call since the key hello is not there.
