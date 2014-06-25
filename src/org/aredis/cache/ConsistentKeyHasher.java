@@ -97,7 +97,7 @@ public class ConsistentKeyHasher implements KeyHasher {
         int javaHashCode = (con.getHost() + ':' + con.getPort() + '/' + connection.getDbIndex()).hashCode();
         String serverNameRandomizer1 = String.valueOf(javaHashCode % 10);
         String serverNameRandomizer2 = String.valueOf((javaHashCode / 10) % 10);
-        String connectionKeyToHash = "" + repetitionIndex + '-' + serverNameRandomizer1 + serverNameRandomizer2 + '-' + con.getHost() + '-' + serverNameRandomizer2 + serverNameRandomizer1 + ':' + con.getPort() + '/' + connection.getDbIndex() + '-' + serverNameRandomizer2 + serverNameRandomizer1 + '-' + repetitionIndex;
+        String connectionKeyToHash = "" + serverNameRandomizer1 + serverNameRandomizer2 + '-' + repetitionIndex + '-' + con.getHost() + '-' + serverNameRandomizer2 + serverNameRandomizer1 + ':' + con.getPort() + '/' + connection.getDbIndex() + '-' + repetitionIndex + '-' + serverNameRandomizer2 + serverNameRandomizer1;
         return connectionKeyToHash;
     }
 
