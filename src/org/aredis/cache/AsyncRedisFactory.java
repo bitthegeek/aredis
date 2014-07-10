@@ -43,7 +43,7 @@ import org.aredis.util.pool.LeakCheckingAsyncObjectPool;
  * {@link AsyncObjectPool}<AsyncRedisConnection> and {@link RedisSubscription}. In a server environment it should
  * be configured as a Singleton or as a Spring Bean. It returns the Same Service Object on Subsequent calls for the
  * same server or comma separated list of servers. Currently the AsyncRedisConnection there is no way to free
- * AsyncRedisConnection Objects that are no longer needed. But the connections close after the configure idle timeout.
+ * AsyncRedisConnection Objects that are no longer needed. But the connections close after the configured idle timeout.
  * @author Suresh
  *
  */
@@ -557,5 +557,13 @@ public class AsyncRedisFactory {
      */
     public AsyncSocketTransportFactory getTransportFactory() {
         return transportFactory;
+    }
+
+    /**
+     * Gets the configured Executor for this factory or null if none is configured.
+     * @return
+     */
+    public Executor getExecutor() {
+        return executor;
     }
 }
