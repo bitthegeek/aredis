@@ -154,11 +154,11 @@ public class ConsistentKeyHasher implements KeyHasher {
     }
 
     /**
-     * Creates a Consistent Key Hasher with 160 hashes per connection and AREDIS_HASH as the Hash Algorithm.
+     * Creates a Consistent Key Hasher with 180 hashes per connection and CRC_HASH as the Hash Algorithm.
      * @param pconnections connections to pick one from
      */
     public ConsistentKeyHasher(AsyncRedisConnection[] pconnections) {
-        this(pconnections, 160, DefaultHashAlgorithm.AREDIS_HASH);
+        this(pconnections, 180, DefaultHashAlgorithm.CRC_HASH);
     }
 
     @Override
