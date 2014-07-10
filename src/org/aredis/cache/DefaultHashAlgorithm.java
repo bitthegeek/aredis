@@ -157,10 +157,9 @@ public enum DefaultHashAlgorithm implements HashAlgorithm {
         longResult = false;
         break;
     case CRC_HASH:
-      // return (crc32(shift) >> 16) & 0x7fff;
       CRC32 crc32 = new CRC32();
       crc32.update(k.getBytes(RedisConstants.UTF_8_CHARSET));
-      rv = (crc32.getValue() >> 16) & 0x7fff;
+      rv = crc32.getValue();
       break;
     case FNV1_64_HASH:
       // Thanks to pierre@demartines.com for the pointer
