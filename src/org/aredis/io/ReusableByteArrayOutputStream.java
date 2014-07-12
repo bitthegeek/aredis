@@ -87,8 +87,8 @@ public class ReusableByteArrayOutputStream extends ByteArrayOutputStream {
      * @param pcount
      */
     public void setCount(int pcount) {
-        if(pcount < 0 || pcount >= buf.length) {
-            throw new IndexOutOfBoundsException();
+        if(pcount < 0 || pcount > buf.length) {
+            throw new IndexOutOfBoundsException(pcount + " is not in the range [0-" + buf.length + ']');
         }
         count = pcount;
     }
