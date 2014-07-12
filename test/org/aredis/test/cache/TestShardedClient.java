@@ -22,7 +22,6 @@
 
 package org.aredis.test.cache;
 
-import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -44,7 +43,6 @@ public class TestShardedClient {
         executor.allowCoreThreadTimeOut(true);
         AsyncRedisFactory f = new AsyncRedisFactory(executor);
         String host = "localhost,10.10.10.10,10.10.10.11";
-        Future<RedisCommandInfo> futureResult = null;
         AsyncRedisClient client = f.getClient(host);
         Object keys[] = new Object[count];
         for(i = 0; i < count; i++) {
