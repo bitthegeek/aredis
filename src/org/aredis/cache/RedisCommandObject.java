@@ -114,6 +114,7 @@ class RedisCommandObject implements AsyncHandler<RedisRawResponse> {
                     log.info(dataHandler.getClass().getName() + ": " + msg);
                 }
             }
+            bop.clearCompressionInfo();
         }
         finally {
             bop.setCompressionEnabled(false);

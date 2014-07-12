@@ -88,6 +88,8 @@ public class CompressibleByteArrayOutputStream extends OutputStream {
 
     private int abandonedGzipLen;
 
+    private boolean compressionInfoCleared;
+
     private int countAtSessionStart;
 
     private int abandonRatioNr = 7;
@@ -402,14 +404,22 @@ public class CompressibleByteArrayOutputStream extends OutputStream {
      */
     public String getCompressionInfo() {
         String msg = null;
-        int bytesInSession = bop.getCount() - countAtSessionStart;
-        if(bytesInSession != bytesWrittenSinceSessionStart) {
-            msg = "Compressed data from " + bytesWrittenSinceSessionStart + " to " + bytesInSession + " bytes";
-        }
-        else if(abandonedGzipLen > 0) {
-            msg = "Abandoned GZIP because " + bytesWrittenAtLastAbandonCheck + " bytes compressed only to " + abandonedGzipLen + " (" + ((int) Math.round(100 * (double) abandonedGzipLen / bytesWrittenAtLastAbandonCheck)) + "%). Final Data Length = " + bytesWrittenSinceSessionStart + "(=" + bytesInSession + ')';
+        if (!compressionInfoCleared) {
+            int bytesInSession = bop.getCount() - countAtSessionStart;
+            if(bytesInSession != bytesWrittenSinceSessionStart) {
+                msg = "Compressed data from " + bytesWrittenSinceSessionStart + " to " + bytesInSession + " bytes";
+            }
+            else if(abandonedGzipLen > 0) {
+                msg = "Abandoned GZIP because " + bytesWrittenAtLastAbandonCheck + " bytes compressed only to " + abandonedGzipLen + " (" + ((int) Math.round(100 * (double) abandonedGzipLen / bytesWrittenAtLastAbandonCheck)) + "%). Final Data Length = " + bytesWrittenSinceSessionStart + "(=" + bytesInSession + ')';
+            }
         }
         return msg;
+    }
+
+    public boolean clearCompressionInfo() {
+        boolean prevValue = compressionInfoCleared;
+        compressionInfoCleared = true;
+        return prevValue;
     }
 
     /**
@@ -418,11 +428,13 @@ public class CompressibleByteArrayOutputStream extends OutputStream {
      */
     public void setCompressionEnabled(boolean pcompressionEnabled) {
         if(!compressionEnabled && pcompressionEnabled) {
+            // Re-enable abandonCompression if it has been disabled explicitly via setAbandonCompressionEnabled
             abandonCompressionEnabled = true;
             countAtSessionStart = bop.getCount();
             abandonedGzipLen = 0;
             bytesWrittenSinceSessionStart = 0;
             bytesWrittenAtLastAbandonCheck = 0;
+            compressionInfoCleared = false;
         }
         compressionEnabled = pcompressionEnabled;
     }
@@ -436,8 +448,9 @@ public class CompressibleByteArrayOutputStream extends OutputStream {
     }
 
     /**
-     * Sets if abandon compression should be enabled
-     * @param pabandonCompressionEnabled true if abandon compression should be enabled, false oherwise.
+     * Sets if abandon compression should be enabled. This flag is automatically set if compression is
+     * re-enabled by calling setCompressionEnabled(true).
+     * @param pabandonCompressionEnabled true if abandon compression should be enabled, false otherwise.
      */
     public void setAbandonCompressionEnabled(boolean pabandonCompressionEnabled) {
         abandonCompressionEnabled = pabandonCompressionEnabled;
