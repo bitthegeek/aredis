@@ -6,6 +6,15 @@ import org.aredis.cache.RedisCommand;
 import org.aredis.cache.RedisCommandInfo;
 
 /*
+ * In the context of Redis/aredis Sharding is a mechanism by which load and memory is distributed amongst
+ * multiple redis servers by distributing the keys to be stored amongst them. This is done by computing
+ * an integer hash value of the key based on a Hashing Algorithm and assigning the key to one of the
+ * servers based on its hash value. So a command sent to a ShardedAsyncRedisClient has to have a
+ * single key or if it takes multiple keys all of the keys have to map to the same server. MSET, MGET
+ * and DEL are exceptions wherein aredis simulates the behavior of a single redis server by
+ * sending the command to multiple servers, each getting the keys mapped to it, and aggregating the
+ * results from them.
+ *
  * Below is an example of Sharding. The usage is similar to a regular client. The only thing is that you give
  * a comma separated list of servers.
  *
