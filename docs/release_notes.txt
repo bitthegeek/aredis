@@ -1,3 +1,19 @@
+Released Version 1.3 on 12th July 2014
+======================================
+
+Changes:
+
+Important Bug Fix: Fixed IndexOutOfBoundsException that can occur in some scenarios when values to
+be written in commands like SET are compressed.
+
+Improvements in Sharding including using CRC_HASH algorithm instead of AREDIS_HASH algorithm for a
+more even key distribution among the servers. If you have been using Sharding with an older release
+of aredis note that the key to server mapping will be different with this release.
+
+Bug Fix relating to Storing of Java Objects: Fixed incorrect comparison of ClassDescriptors
+resulting in additional descriptor entries for the same class in OPTI_JAVA_HANDLER. The data format
+for storing values is unchanged.
+
 Released Version 1.2 on 22nd May 2014
 =====================================
 
