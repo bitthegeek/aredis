@@ -32,17 +32,20 @@ class ClassDescriptorOutputStream extends ObjectOutputStream {
 
     public ClassDescriptorOutputStream(ReusableByteArrayOutputStream pbop) throws IOException {
         super(pbop);
-        flush();
         bop = pbop;
     }
 
     public byte [] writeDescriptor(ObjectStreamClass desc) throws IOException {
-        int oldCount = bop.getCount();
+        // The reset call below is required to prevent the writing of handles instead of
+        // the original String
+        reset();
+        flush();
+        bop.setCount(0);
         writeClassDescriptor(desc);
         flush();
         int count = bop.getCount();
-        byte [] b = new byte[count - oldCount];
-        System.arraycopy(bop.getBuf(), oldCount, b, 0, b.length);
+        byte [] b = new byte[count];
+        System.arraycopy(bop.getBuf(), 0, b, 0, b.length);
         return b;
     }
 }
