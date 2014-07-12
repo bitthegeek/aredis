@@ -561,7 +561,7 @@ public class AsyncRedisFactory {
 
     /**
      * Gets the configured Executor for this factory or null if none is configured.
-     * @return
+     * @return Configured Executor
      */
     public Executor getExecutor() {
         return executor;
