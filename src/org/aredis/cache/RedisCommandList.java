@@ -70,11 +70,18 @@ class RedisCommandList implements AsyncHandler<Integer> {
 
         @Override
         public void run() {
-            if(finalResponsesHandler != null) {
-                finalResponsesHandler.completed(commandInfos, null);
+            try {
+                AsyncRedisConnection.insideCallback.set(true);
+                aredis.updatePipelineSizeForResponse(RedisCommandList.this);
+                if(finalResponsesHandler != null) {
+                    finalResponsesHandler.completed(commandInfos, null);
+                }
+                else if(finalResponseHandler != null) {
+                    finalResponseHandler.completed(commandInfos[0], null);
+                }
             }
-            else if(finalResponseHandler != null) {
-                finalResponseHandler.completed(commandInfos[0], null);
+            finally {
+                AsyncRedisConnection.insideCallback.remove();
             }
         }
 
@@ -98,8 +105,6 @@ class RedisCommandList implements AsyncHandler<Integer> {
 
     private int requestIndex;
 
-    int bytesWritten;
-
     private AsyncSocketTransport con;
 
     private ScriptStatuses scriptStatuses;
@@ -119,6 +124,8 @@ class RedisCommandList implements AsyncHandler<Integer> {
     boolean hasSelectCommands;
 
     private boolean hasScriptCommands;
+
+    private AsyncRedisConnection aredis;
 
     public RedisCommandList(RedisCommandInfo pcommandInfos[], Queue<RedisCommandInfo> pqueuedMultiCommands, AsyncHandler<RedisCommandInfo[]> pfinalResponseHandler, boolean requireFutureResults) {
         commandInfos = pcommandInfos;
@@ -163,7 +170,6 @@ class RedisCommandList implements AsyncHandler<Integer> {
     @Override
     public void completed(Integer result, Throwable e) {
         if(result >= 0 && e == null) {
-            bytesWritten += result;
             do {
                 commandObjects[requestIndex].requestData = null;
                 int index = ++requestIndex;
@@ -187,7 +193,6 @@ class RedisCommandList implements AsyncHandler<Integer> {
     public boolean sendRequest(AsyncSocketTransport pcon, AsyncHandler<RedisCommandList> prequestHandler, ScriptStatuses scriptStats) {
         requestHandler = prequestHandler;
         requestIndex = 0;
-        bytesWritten = 0;
         con = pcon;
         scriptStatuses = scriptStats;
         int len = 0;
@@ -217,7 +222,8 @@ class RedisCommandList implements AsyncHandler<Integer> {
         return commandInfo != null || startIndex >= endIndex;
     }
 
-    public void sendFinalResponse(Executor executor, boolean forceCallbackViaExecutor) {
+    public void sendFinalResponse(AsyncRedisConnection paredis, Executor executor, boolean forceCallbackViaExecutor) {
+        aredis = paredis;
         if(futureResults != null) {
             futureResults.run();
         }
@@ -237,6 +243,8 @@ class RedisCommandList implements AsyncHandler<Integer> {
                     log.error("Ignoring Error During Sync Callback", e);
                 }
             }
+        } else {
+            aredis.updatePipelineSizeForResponse(this);
         }
     }
 

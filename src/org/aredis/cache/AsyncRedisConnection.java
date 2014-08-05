@@ -33,6 +33,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -160,25 +163,13 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
 
         @Override
         public void completed(RedisCommandList result, Throwable e) {
-            boolean processNext = true;
             if(result != null && e == null) {
-                commandsInBuffer.add(commandList);
-                partialCommandLen += commandList.bytesWritten;
-                if(!updateNumPipelinedCommands() && responseQueue.size() > 0) {
-                    processNext = false;
-                    requestQueue.markIdle();
-                    if(pipelineSize.get() <= resumePipelineSize && requestQueue.acquireIdle()) {
-                        processNext = true;
-                    }
-                }
                 moveToResponseQueue(commandList);
             }
             else {
                 sendFinalResponse(commandList, false, false);
             }
-            if(processNext) {
-                processNextRequests();
-            }
+            processNextRequests();
         }
     }
 
@@ -200,14 +191,6 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
         @Override
         public void completed(Integer result, Throwable e) {
             if(e == null) {
-                int numBytes = result;
-                if(numBytes < 0) {
-                    numBytes = -numBytes;
-                }
-                partialCommandLen += numBytes;
-                if(result < 0) {
-                    updateNumPipelinedCommands();
-                }
                 flushCount++;
             }
             processNextRequests();
@@ -392,10 +375,6 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
 
     private FlushHandler flushHandler;
 
-    private Queue<RedisCommandList> commandsInBuffer;
-
-    private int partialCommandLen;
-
     private int accumulatedMicros;
 
     private AtomicInteger pipelineSize;
@@ -416,9 +395,15 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
 
     private ResponseHandler responseHandler;
 
-    private volatile int maxPipelineSize;
+    private int maxPipelineSize;
 
-    private volatile int resumePipelineSize;
+    private int resumePipelineSize;
+
+    private Lock pipelineLock;
+
+    private Condition pipelineCondition;
+
+    private volatile boolean pipelineFull;
 
     private boolean isResponseErrored;
 
@@ -433,6 +418,8 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
     boolean isBorrowed;
 
     boolean isCommonConnection;
+
+    static ThreadLocal<Boolean> insideCallback;
 
     static Vector<AsyncRedisConnection> openConnections = new Vector<AsyncRedisConnection>();
 
@@ -459,12 +446,13 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
             connectionType = ConnectionType.SHARED;
         }
         queuedMultiCommands = new LinkedList<RedisCommandInfo>();
-        requestQueue = new SingleConsumerQueue<RedisCommandList>(5000);
+        requestQueue = new SingleConsumerQueue<RedisCommandList>(2000);
         RequestQueueIdleListener idleListener = new RequestQueueIdleListener();
         requestQueue.setIdleListener(idleListener);
         responseQueue = new SingleConsumerQueue<RedisCommandList>();
-        commandsInBuffer = new LinkedList<RedisCommandList>();
         pipelineSize = new AtomicInteger();
+        pipelineLock = new ReentrantLock();
+        pipelineCondition = pipelineLock.newCondition();
         dataHandler = AsyncRedisConnection.DEFAULT_HANDLER;
         setMaxPipelineSize(DEFAULT_MAX_PIPELINE_SIZE);
         connectHandler = new ConnectHandler();
@@ -477,6 +465,7 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
         closeStaleConnectionTask = new CloseStaleConnectionTask();
         periodicTask = new AredisPeriodicTask();
         scriptStatuses = RedisServerWideData.getInstance(con).getScriptStatuses();
+        insideCallback = new ThreadLocal<Boolean>();
     }
 
     /**
@@ -492,8 +481,6 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
 
     private void resetOnConnect() {
         pipelineSize.set(0);
-        partialCommandLen = 0;
-        commandsInBuffer.clear();
         queuedMultiCommands.clear();
         isResponseErrored = false;
         accumulatedMicros = 0;
@@ -502,33 +489,6 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
         config.setMaxIdleTimeMillis(savedConfig.getMaxIdleTimeMillis());
         PeriodicTaskPoller periodicTaskPoller = PeriodicTaskPoller.getInstance();
         periodicTaskPoller.addTask(periodicTask);
-    }
-
-    private boolean updateNumPipelinedCommands() {
-        int pCount = 0;
-        RedisCommandList bufferedCommand;
-        while( (bufferedCommand = commandsInBuffer.peek()) != null) {
-            int initialPipelinedCommands = bufferedCommand.numPipelinedCammands;
-            int remainingBytes = bufferedCommand.updateNumPipelinedCommands(partialCommandLen);
-            if(remainingBytes < partialCommandLen) {
-                partialCommandLen = remainingBytes;
-                pCount = pipelineSize.addAndGet(bufferedCommand.numPipelinedCammands - initialPipelinedCommands);
-                if(bufferedCommand.numPipelinedCammands == bufferedCommand.endIndex) {
-                    commandsInBuffer.poll();
-                }
-                else {
-                    break;
-                }
-            }
-            else {
-                break;
-            }
-        }
-        if(bufferedCommand == null && partialCommandLen > 0) {
-            log.warn("Invalid Condition " + partialCommandLen + " bytes remaining without any pending commands");
-        }
-
-        return pCount < maxPipelineSize;
     }
 
     private void moveToResponseQueue(RedisCommandList processedCommandList) {
@@ -633,7 +593,6 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
                     currentDbIndex = commandList.finalDbIndex;
                 }
                 if(isSyncSend) {
-                    commandsInBuffer.add(commandList);
                     moveToResponseQueue(commandList);
                 }
             }
@@ -666,28 +625,47 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
         } while(isSyncSend);
     }
 
+    void waitOnFullPipeline(long timeoutMicros) {
+        if (timeoutMicros > 0) {
+            try {
+                pipelineFull = true;
+                pipelineLock.lock();
+                try {
+                    pipelineCondition.await(timeoutMicros, TimeUnit.MICROSECONDS);
+                } catch (InterruptedException e) {
+                }
+            } finally {
+                pipelineLock.unlock();
+            }
+        }
+    }
+
+    void updatePipelineSizeForResponse(RedisCommandList processedCommandList) {
+        if(pipelineSize.addAndGet(-processedCommandList.commandInfos.length) <= resumePipelineSize && pipelineFull) {
+            try {
+                pipelineLock.lock();
+                pipelineFull = false;
+                pipelineCondition.signalAll();
+            } finally {
+                pipelineLock.unlock();
+            }
+            /*
+            if (requestQueue.size() > 0 && requestQueue.acquireIdle()) {
+                bootstrapExecutor.execute(startRequestProcessingTask);
+            }
+            */
+        }
+    }
+
     private void sendFinalResponse(RedisCommandList processedCommandList, boolean issuccess, boolean forceCallbackViaExecutor) {
-        int pSize = 0;
         if(issuccess) {
-            // pSize = pipelineSize.decrementAndGet();
-            pSize = pipelineSize.addAndGet(-processedCommandList.commandInfos.length);
             processedCommandList.updateScriptStatuses(scriptStatuses);
-        }
-        /*
-        if(pSize < 0) {
-            log.warn("Calculated Pipeline Size " + pSize + " is negative. Resetting to 0");
-            pSize = 0;
-            pipelineSize.set(0);
-        }
-        */
-        if(issuccess && pSize <= resumePipelineSize && requestQueue.size() > 0 && requestQueue.acquireIdle()) {
-            bootstrapExecutor.execute(startRequestProcessingTask);
         }
         Executor executor = taskExecutor;
         if(executor == null) {
             executor = bootstrapExecutor;
         }
-        processedCommandList.sendFinalResponse(executor, forceCallbackViaExecutor);
+        processedCommandList.sendFinalResponse(this, executor, forceCallbackViaExecutor);
     }
 
     private void processNextResponses() {
@@ -766,10 +744,26 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
                 sendFinalResponse(commandList, false, true);
             }
             if(processRequest) {
+                int pipelineThreshold = maxPipelineSize;
+                if (insideCallback.get() != null) {
+                    // Try and avoid blocking in Callback because it again uses up the
+                    // executor Thread Pool further slowing down command processing making
+                    // it cyclic
+                    pipelineThreshold = pipelineThreshold + 1000;
+                }
+                int currentPipelineSize = pipelineSize.get();
+                if(currentPipelineSize > pipelineThreshold) {
+                    long waitTimeMicros = 10000;
+                    if (currentPipelineSize > pipelineThreshold + 500) {
+                        waitTimeMicros = 100000;
+                    }
+                    waitOnFullPipeline(waitTimeMicros);
+                }
                 boolean startRequestProcessing = requestQueue.add(commandList, true);
                 if(startRequestProcessing) {
                     bootstrapExecutor.execute(startRequestProcessingTask);
                 }
+                pipelineSize.addAndGet(commandList.commandInfos.length);
             }
         }
     }
@@ -878,22 +872,17 @@ public class AsyncRedisConnection extends AbstractAsyncRedisClient {
     }
 
     /**
-     * Sets the max number of commands that can be pending for response in the Redis Server.
-     * This does not include the commands in the local Q. Once this limit is reached request processing is suspended
-     * till the pipeline size comes down to resumePipelineSize which is 0.8 * maxPipelineSize or maxPipelineSize - 100 whichever is greater.
-     * AsyncRedisConnection relies on the underlying {@link AsyncSocketTransport} API to determine the actual number of bytes
-     * flushed and sent over the socket to determine the number of commands in pipeline.
+     * Sets the max number of commands pending for response in the Redis Server.
+     * This includes the commands in the local Q. Once this limit is reached the submitCommand calls are
+     * delayed upto a max of 100 ms for the pipeline size to come down by 100 or more. If the value supplied is
+     * less than 200 the pipeline size is taken as 200.
      * @param pmaxPipelineSize max number of commands allowed in Redis Server pipeline
      */
     public void setMaxPipelineSize(int pmaxPipelineSize) {
-        if(pmaxPipelineSize < 10) {
-            pmaxPipelineSize = 10;
+        if(pmaxPipelineSize < 200) {
+            pmaxPipelineSize = 200;
         }
-        int diff = pmaxPipelineSize / 5;
-        if(diff > 100) {
-            diff = 100;
-        }
-        int resumeSize = pmaxPipelineSize - diff;
+        int resumeSize = pmaxPipelineSize - 100;
         maxPipelineSize = pmaxPipelineSize;
         resumePipelineSize = resumeSize;
     }
