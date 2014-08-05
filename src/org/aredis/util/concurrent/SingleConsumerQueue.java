@@ -187,19 +187,26 @@ public class SingleConsumerQueue<E> {
         }
 
         if(releaseIfEmpty && e == null) {
-            IdleListener<E> listener = idleListener;
-            if(listener != null) {
-                listener.beforeIdle(this);
-            }
-            status = QueueStatus.IDLE;
-            if(q.size() > 0) {
-                if(acquireIdle()) {
+            boolean ensuredEmptyOrAvail;
+            do {
+                ensuredEmptyOrAvail = true;
+                IdleListener<E> listener = idleListener;
+                if(listener != null) {
+                    listener.beforeIdle(this);
+                }
+                status = QueueStatus.IDLE;
+                if(q.size() > 0 && acquireIdle()) {
                     e = remove(0, false);
+                    // In the previous code the e == null was considered impossible and threw
+                    // an IllegalStateException. However it is possible if after the size check
+                    // and before acquiring the idle Q another thread acquired dequeued 1 item
+                    // successfully and then released it on attempting another remove in which
+                    // case acquireIdle will succeed but the Q will be empty
                     if(e == null) {
-                        throw new IllegalStateException("Unexpected empty Q after re-acquiring");
+                        ensuredEmptyOrAvail = false;
                     }
                 }
-            }
+            } while (!ensuredEmptyOrAvail);
         }
 
         return e;
