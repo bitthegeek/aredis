@@ -130,7 +130,7 @@ public abstract class AbstractAsyncSocketTransport implements AsyncSocketTranspo
             status = ConnectionStatus.DOWN;
         }
         if(connectionStatus != ConnectionStatus.DOWN && status == ConnectionStatus.DOWN) {
-            log.warn("Connection DOWN for: " + this);
+            log.warn("Connection DOWN for: " + this + " connect exception: " + e.getMessage());
         }
         if(connectionStatus == ConnectionStatus.DOWN && status == ConnectionStatus.OK) {
             log.info("Connection UP AGAIN for: " + this);
