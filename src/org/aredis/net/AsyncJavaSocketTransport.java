@@ -22,6 +22,7 @@
 
 package org.aredis.net;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -85,9 +86,13 @@ public class AsyncJavaSocketTransport extends AbstractAsyncSocketTransport {
 
         @Override
         public void completed(Integer result, AsyncHandler<Integer> handler) {
-            lastUseTime = System.currentTimeMillis();
-            readBuffer.flip();
-            readInternal(dest, maxBytes, handler, true);
+            if (result > 0) {
+                lastUseTime = System.currentTimeMillis();
+                readBuffer.flip();
+                readInternal(dest, maxBytes, handler, true);
+            } else {
+                failed(new EOFException("EOF detected. Server Closed Connection."), handler);
+            }
         }
 
         @Override
